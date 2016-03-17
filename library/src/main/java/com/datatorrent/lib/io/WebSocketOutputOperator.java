@@ -24,9 +24,9 @@ import java.util.concurrent.*;
 
 import com.ning.http.client.AsyncHttpClient;
 import com.ning.http.client.AsyncHttpClientConfigBean;
-import com.ning.http.client.websocket.WebSocket;
-import com.ning.http.client.websocket.WebSocketTextListener;
-import com.ning.http.client.websocket.WebSocketUpgradeHandler;
+import com.ning.http.client.ws.WebSocket;
+import com.ning.http.client.ws.WebSocketTextListener;
+import com.ning.http.client.ws.WebSocketUpgradeHandler;
 
 import org.codehaus.jackson.JsonFactory;
 import org.codehaus.jackson.map.ObjectMapper;
@@ -159,7 +159,7 @@ public class WebSocketOutputOperator<T> extends BaseOperator
             client.close();
             openConnection();
           }
-          connection.sendTextMessage(convertMapToMessage(t));
+          connection.sendMessage(convertMapToMessage(t));
           break;
         }
         catch (Exception ex) {
@@ -208,11 +208,6 @@ public class WebSocketOutputOperator<T> extends BaseOperator
     {
       @Override
       public void onMessage(String string)
-      {
-      }
-
-      @Override
-      public void onFragment(String string, boolean bln)
       {
       }
 
