@@ -38,7 +38,6 @@ import com.datatorrent.api.annotation.InputPortFieldAnnotation;
 
 import com.datatorrent.common.util.BaseOperator;
 import com.datatorrent.common.util.PubSubMessageCodec;
-import com.datatorrent.common.util.PubSubWebSocketClient;
 
 /**
  * This operator outputs data in a format that can be displayed in DT UI widgets.
@@ -67,7 +66,7 @@ public class WidgetOutputOperator extends BaseOperator
 
     @Override
     public String convertMapToMessage(Pair<String,Object> t) throws IOException {
-      return PubSubWebSocketClient.constructPublishMessage(t.getLeft(), t.getRight(), codec);
+      return PubSubMessageCodec.constructPublishMessage(t.getLeft(), t.getRight(), codec);
     };
 
   };
