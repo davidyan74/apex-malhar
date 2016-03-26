@@ -190,50 +190,8 @@
           <consoleOutput>false</consoleOutput>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>2.4.3</version>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>shade</goal>
-            </goals>
-            <configuration>
-              <artifactSet>
-                <includes>
-                  <include>com.ning:*</include>
-                  <include>io.netty:*</include>
-                </includes>
-              </artifactSet>
-              <relocations>
-                <relocation>
-                  <pattern>com.ning</pattern>
-                  <shadedPattern>org.apache.apex.malhar.shaded.com.ning</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.jboss</pattern>
-                  <shadedPattern>org.apache.apex.malhar.shaded.org.jboss</shadedPattern>
-                </relocation>
-              </relocations>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
-
-  <dependencyManagement>
-    <dependencies>
-      <!-- this dependency conflicts with hadoop's transitive dependencies and is shaded -->
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty</artifactId>
-        <version>3.10.5.Final</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
 
   <dependencies>
     <dependency>
@@ -370,9 +328,9 @@
       <version>7.0.6</version>
     </dependency>
     <dependency>
-      <groupId>com.ning</groupId>
-      <artifactId>async-http-client</artifactId>
-      <version>1.9.36</version>
+      <groupId>org.apache.apex</groupId>
+      <artifactId>apex-shaded-ning19</artifactId>
+      <version>1.0.0</version>
     </dependency>
 
   </dependencies>
