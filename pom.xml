@@ -197,6 +197,7 @@
   <modules>
     <module>library</module>
     <module>contrib</module>
+    <module>stream</module>
     <module>demos</module>
   </modules>
 
