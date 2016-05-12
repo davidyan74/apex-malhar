@@ -277,7 +277,7 @@ public class SimpleKafkaConsumer extends KafkaConsumer
    */
   private int bufferSize = 1024 * 1024;
 
-  /**
+  /**gig
    * Default client id prefix is "Kafka_Simple_Client"
    */
   @NotNull

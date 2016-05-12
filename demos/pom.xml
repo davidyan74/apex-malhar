@@ -220,6 +220,17 @@
     </dependency>
     <dependency>
       <groupId>org.apache.apex</groupId>
+      <artifactId>malhar-stream</artifactId>
+      <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.apex</groupId>
       <artifactId>malhar-library</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
