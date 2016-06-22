@@ -56,6 +56,9 @@ public class TriggerOption
     LATE
   }
 
+  /**
+   * This class represents the individual trigger spec.
+   */
   public static class Trigger
   {
     protected WatermarkOpt watermarkOpt;
@@ -76,6 +79,9 @@ public class TriggerOption
     }
   }
 
+  /**
+   * This class represents a trigger spec in which triggers are fired at regular time intervals.
+   */
   public static class TimeTrigger extends Trigger
   {
     @FieldSerializer.Bind(JavaSerializer.class)
@@ -98,6 +104,9 @@ public class TriggerOption
     }
   }
 
+  /**
+   * This class represents a trigger spec in which triggers are fired every n tuples
+   */
   public static class CountTrigger extends Trigger
   {
     long count;
@@ -185,24 +194,46 @@ public class TriggerOption
     return this;
   }
 
+  /**
+   * With discarding mode, the state is discarded after each trigger
+   *
+   * @return
+   */
   public TriggerOption discardingFiredPanes()
   {
     this.accumulationMode = AccumulationMode.DISCARDING;
     return this;
   }
 
+  /**
+   * With accumulating mode, the state is kept
+   *
+   * @return
+   */
   public TriggerOption accumulatingFiredPanes()
   {
     this.accumulationMode = AccumulationMode.ACCUMULATING;
     return this;
   }
 
+  /**
+   * With accumulating and retracting mode, the state is kept, and the snapshot of the state is saved after each trigger
+   * so when new values come in that change the state, a retraction trigger can be fired with the snapshot of the state
+   * when the last trigger was fired
+   *
+   * @return
+   */
   public TriggerOption accumulatingAndRetractingFiredPane()
   {
     this.accumulationMode = AccumulationMode.ACCUMULATING_AND_RETRACTING;
     return this;
   }
 
+  /**
+   * Gets the accumulation mode
+   *
+   * @return
+   */
   public AccumulationMode getAccumulationMode()
   {
     return accumulationMode;

@@ -1,3 +1,21 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.apex.malhar.stream.window;
 
 import java.util.ArrayList;
@@ -15,6 +33,11 @@ public interface Tuple<T>
    */
   T getValue();
 
+  /**
+   * Plain tuple class
+   *
+   * @param <T>
+   */
   class PlainTuple<T> implements Tuple<T>
   {
     private T value;
@@ -46,6 +69,11 @@ public interface Tuple<T>
     }
   }
 
+  /**
+   * Tuple that is wrapped by a timestamp
+   *
+   * @param <T>
+   */
   class TimestampedTuple<T> extends PlainTuple<T>
   {
     private long timestamp;
@@ -72,6 +100,11 @@ public interface Tuple<T>
     }
   }
 
+  /**
+   * Tuple that is wrapped by a timestamp and one or more windows
+   *
+   * @param <T>
+   */
   class WindowedTuple<T> extends TimestampedTuple<T>
   {
     private List<Window> windows = new ArrayList<>();
@@ -95,6 +128,11 @@ public interface Tuple<T>
     }
   }
 
+  /**
+   * Tuple that represents a watermark
+   *
+   * @param <T>
+   */
   class WatermarkTuple<T> extends TimestampedTuple<T> implements Watermark
   {
     private WatermarkTuple()

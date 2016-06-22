@@ -28,7 +28,6 @@ import java.util.Set;
  * The key to this key/value store is a pair of (Window, K)
  *
  * Note that this interface expects that the implementation takes care of checkpoint recovery
- * TODO: Look at the possibility of integrating spillable data structure: https://issues.apache.org/jira/browse/APEXMALHAR-2026
  *
  */
 @InterfaceStability.Evolving

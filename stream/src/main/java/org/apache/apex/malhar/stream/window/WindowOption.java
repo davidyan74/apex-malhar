@@ -35,10 +35,16 @@ import org.joda.time.Duration;
 @InterfaceStability.Evolving
 public abstract class WindowOption
 {
+  /**
+   * The windowing specification that says there is only one window for the entire time of the application
+   */
   public static class GlobalWindow extends WindowOption
   {
   }
 
+  /**
+   * The windowing specification that divides the time into slices with the same width
+   */
   public static class TimeWindows extends WindowOption
   {
     @FieldSerializer.Bind(JavaSerializer.class)
@@ -54,17 +60,32 @@ public abstract class WindowOption
       this.duration = duration;
     }
 
+    /**
+     * Gets the duration of the time window
+     *
+     * @return
+     */
     public Duration getDuration()
     {
       return duration;
     }
 
+    /**
+     * The time window should be a sliding window with the given slide duration
+     *
+     * @param duration
+     * @return
+     */
     public SlidingTimeWindows slideBy(Duration duration)
     {
       return new SlidingTimeWindows(this.duration, duration);
     }
   }
 
+  /**
+   * The window specification that represents sliding windows
+   *
+   */
   public static class SlidingTimeWindows extends TimeWindows
   {
     @FieldSerializer.Bind(JavaSerializer.class)
@@ -90,6 +111,10 @@ public abstract class WindowOption
     }
   }
 
+  /**
+   * The window specification that represents session windows, with a minimum gap duration between two windows with the
+   * same key.
+   */
   public static class SessionWindows extends WindowOption
   {
     @FieldSerializer.Bind(JavaSerializer.class)

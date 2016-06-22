@@ -36,6 +36,10 @@ public interface Window
    */
   class GlobalWindow implements Window
   {
+    private GlobalWindow()
+    {
+    }
+
     @Override
     public long getBeginTimestamp()
     {
@@ -49,6 +53,10 @@ public interface Window
 
   class DefaultComparator implements Comparator<Window>
   {
+    private DefaultComparator()
+    {
+    }
+
     @Override
     public int compare(Window o1, Window o2)
     {
@@ -68,7 +76,14 @@ public interface Window
     }
   }
 
+  /**
+   * The singleton global window
+   */
   GlobalWindow GLOBAL_WINDOW = new GlobalWindow();
+
+  /**
+   * The singleton default comparator of windows
+   */
   Comparator<Window> DEFAULT_COMPARATOR = new DefaultComparator();
 
   /**
@@ -115,7 +130,8 @@ public interface Window
   }
 
   /**
-   * SessionWindow is a window that represents a time slice for a key, with the time slice being variable length
+   * SessionWindow is a window that represents a time slice for a key, with the time slice being variable length.
+   *
    * @param <K>
    */
   class SessionWindow<K> extends TimeWindow

@@ -22,8 +22,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 
 /**
  * This interface is for the processing part of the WindowedOperator.
- * We can assume that all processing of the WindowedOperator is a form of accumulation since a filter would not
- * require windows.
+ * We can assume that all stateful processing of the WindowedOperator is a form of accumulation.
  *
  * In most cases, AccumT is the same as OutputT. But in some cases, the accumulated type and the output type may be
  * different. For example, if we are doing the AVERAGE of doubles, InputT will be double, and we need the SUM and the
