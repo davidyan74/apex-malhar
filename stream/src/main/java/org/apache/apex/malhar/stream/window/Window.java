@@ -60,6 +60,8 @@ public interface Window
         return -1;
       } else if (o1.getDurationMillis() > o2.getDurationMillis()) {
         return 1;
+      } else if (o1 instanceof SessionWindow && o2 instanceof SessionWindow) {
+        return Long.compare(((SessionWindow) o1).getKey().hashCode(), ((SessionWindow) o2).getKey().hashCode());
       } else {
         return 0;
       }
@@ -131,10 +133,14 @@ public interface Window
       this.key = key;
     }
 
+    public K getKey()
+    {
+      return key;
+    }
+
     /**
      * Merges the two session windows and forms one window that spans the two windows.
      * The caller of this method is responsible for checking whether the two windows are close enough for merging
-     * (i.e. calling {@link #shouldMerge})
      *
      * @param w1
      * @param w2
@@ -151,29 +157,5 @@ public interface Window
       return new SessionWindow<>(w1.key, beginTimestamp, endTimestamp - beginTimestamp);
     }
 
-    /**
-     * Given the two session windows and the minimum gap of session windows, determine whether
-     * the two windows should be merged
-     *
-     * @param w1
-     * @param w2
-     * @param minGap
-     * @param <K>
-     * @return
-     */
-    public static <K> boolean shouldMerge(SessionWindow<K> w1, SessionWindow<K> w2, long minGap)
-    {
-      if (!((w1.key == null && w2.key == null) || w1.key.equals(w2.key))) {
-        return false;
-      }
-      if (w1.beginTimestamp == w2.beginTimestamp) {
-        return true;
-      }
-      if (w1.beginTimestamp < w2.beginTimestamp) {
-        return (w1.beginTimestamp + w1.durationMillis + minGap > w2.beginTimestamp);
-      } else {
-        return (w2.beginTimestamp + w2.durationMillis + minGap > w1.beginTimestamp);
-      }
-    }
   }
 }

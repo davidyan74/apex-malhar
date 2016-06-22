@@ -28,12 +28,13 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
     WindowOption.SessionWindows sessionWindowOption = (WindowOption.SessionWindows) windowOption;
     SessionWindowedStorage<KeyT, AccumT> sessionStorage = (SessionWindowedStorage<KeyT, AccumT>) dataStorage;
     Collection<Map.Entry<Window.SessionWindow, AccumT>> sessionEntries = sessionStorage.getSessionEntries(key, timestamp, sessionWindowOption.getMinGap().getMillis());
+    Window.SessionWindow<KeyT> sessionWindowToAssign;
     switch (sessionEntries.size()) {
       case 0: {
         // There are no existing windows within the minimum gap. Create a new session window
         Window.SessionWindow<KeyT> sessionWindow = new Window.SessionWindow<>(key, timestamp, 1);
         windowStateMap.put(sessionWindow, new WindowState());
-        windows.add(sessionWindow);
+        sessionWindowToAssign = sessionWindow;
         break;
       }
       case 1: {
@@ -42,7 +43,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
         Window.SessionWindow<KeyT> sessionWindow = sessionWindowEntry.getKey();
         if (sessionWindow.getBeginTimestamp() <= timestamp && timestamp < sessionWindow.getBeginTimestamp() + sessionWindow.getDurationMillis()) {
           // The session window already covers the event
-          windows.add(sessionWindow);
+          sessionWindowToAssign = sessionWindow;
         } else {
           // The session window does not cover the event but is within the min gap
           if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
@@ -57,6 +58,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
           windowStateMap.remove(sessionWindow);
           sessionStorage.migrateWindow(sessionWindow, newSessionWindow);
           windowStateMap.put(newSessionWindow, new WindowState());
+          sessionWindowToAssign = newSessionWindow;
         }
         break;
       }
@@ -82,11 +84,13 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
         sessionStorage.remove(sessionWindow1);
         sessionStorage.remove(sessionWindow2);
         sessionStorage.put(newSessionWindow, key, newSessionData);
+        sessionWindowToAssign = newSessionWindow;
         break;
       }
       default:
         throw new IllegalStateException("There are more than two sessions matching one timestamp");
     }
+    windows.add(sessionWindowToAssign);
   }
 
   @Override

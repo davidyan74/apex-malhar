@@ -19,8 +19,9 @@ public interface Tuple<T>
   {
     private T value;
 
-    public PlainTuple()
+    private PlainTuple()
     {
+      // for kryo
     }
 
     public PlainTuple(T value)
@@ -49,8 +50,9 @@ public interface Tuple<T>
   {
     private long timestamp;
 
-    public TimestampedTuple()
+    private TimestampedTuple()
     {
+      // for kryo
     }
 
     public TimestampedTuple(long timestamp, T value)
