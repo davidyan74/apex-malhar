@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
+package org.apache.apex.malhar.lib.window;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -127,30 +127,6 @@ public interface Tuple<T>
     public void addWindow(Window window)
     {
       this.windows.add(window);
-    }
-  }
-
-  /**
-   * Tuple that represents a watermark
-   *
-   * @param <T>
-   */
-  class WatermarkTuple<T> extends TimestampedTuple<T> implements Watermark
-  {
-    private WatermarkTuple()
-    {
-      // for kryo
-    }
-
-    public WatermarkTuple(long timestamp)
-    {
-      super(timestamp, null);
-    }
-
-    @Override
-    public String toString()
-    {
-      return "[Watermark " + getTimestamp() + "]";
     }
   }
 

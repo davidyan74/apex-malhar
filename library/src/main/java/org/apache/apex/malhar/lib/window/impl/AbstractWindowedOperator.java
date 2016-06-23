@@ -16,33 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.impl;
+package org.apache.apex.malhar.lib.window.impl;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import com.datatorrent.api.Context;
-import com.datatorrent.api.DefaultInputPort;
-import com.datatorrent.api.DefaultOutputPort;
-import com.datatorrent.common.util.BaseOperator;
-import com.datatorrent.stram.engine.WindowGenerator;
-import com.datatorrent.stram.plan.logical.LogicalPlan;
-import org.apache.apex.malhar.stream.api.function.Function;
-import org.apache.apex.malhar.stream.window.Accumulation;
-import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Window;
-import org.apache.apex.malhar.stream.window.WindowOption;
-import org.apache.apex.malhar.stream.window.WindowState;
-import org.apache.apex.malhar.stream.window.WindowedOperator;
-import org.apache.apex.malhar.stream.window.WindowedStorage;
+import javax.validation.ValidationException;
+
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.validation.ValidationException;
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.apex.malhar.lib.window.ControlTuple;
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowOption;
+import org.apache.apex.malhar.lib.window.WindowState;
+import org.apache.apex.malhar.lib.window.WindowedOperator;
+import org.apache.apex.malhar.lib.window.WindowedStorage;
+
+import com.google.common.base.Function;
+
+import com.datatorrent.api.Context;
+import com.datatorrent.api.DefaultInputPort;
+import com.datatorrent.api.DefaultOutputPort;
+import com.datatorrent.api.annotation.InputPortFieldAnnotation;
+import com.datatorrent.common.util.BaseOperator;
 
 /**
  * This is the abstract windowed operator class that implements most of the windowing, triggering, and accumulating
@@ -59,7 +62,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
   protected long allowedLatenessMillis = -1;
   protected WindowedStorage<WindowState> windowStateMap;
 
-  private Function.MapFunction<InputT, Long> timestampExtractor;
+  private Function<InputT, Long> timestampExtractor;
 
   private long currentWatermark;
   private boolean triggerAtWatermark;
@@ -67,9 +70,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
   private long earlyTriggerMillis;
   private long lateTriggerCount;
   private long lateTriggerMillis;
-  private long currentApexWindowId = -1;
-  private long currentDerivedTimestamp;
-  private long firstWindowMillis;
+  private long currentDerivedTimestamp = -1;
   private long windowWidthMillis;
   protected DataStorageT dataStorage;
   protected DataStorageT retractionStorage;
@@ -86,37 +87,49 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
     }
   };
 
+  // TODO: This port should be removed when Apex Core has native support for custom control tuples
+  @InputPortFieldAnnotation(optional = true)
+  public final transient DefaultInputPort<ControlTuple> controlInput = new DefaultInputPort<ControlTuple>()
+  {
+    @Override
+    public void process(ControlTuple tuple)
+    {
+      if (tuple instanceof ControlTuple.Watermark) {
+        processWatermark((ControlTuple.Watermark)tuple);
+      }
+    }
+  };
+
+
   // TODO: multiple input ports for join operations
 
   public final transient DefaultOutputPort<Tuple<OutputT>> output = new DefaultOutputPort<>();
+  public final transient DefaultOutputPort<ControlTuple> controlOutput = new DefaultOutputPort<>();
+
 
   protected void processTuple(Tuple<InputT> tuple)
   {
-    if (tuple instanceof Tuple.WatermarkTuple) {
-      processWatermark((Tuple.WatermarkTuple<InputT>) tuple);
+    long timestamp = extractTimestamp(tuple);
+    if (isTooLate(timestamp)) {
+      dropTuple(tuple);
     } else {
-      long timestamp = extractTimestamp(tuple);
-      if (isTooLate(timestamp)) {
-        dropTuple(tuple);
-      } else {
-        Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple);
-        // do the accumulation
-        accumulateTuple(windowedTuple);
+      Tuple.WindowedTuple<InputT> windowedTuple = getWindowedValue(tuple);
+      // do the accumulation
+      accumulateTuple(windowedTuple);
 
-        for (Window window : windowedTuple.getWindows()) {
-          WindowState windowState = windowStateMap.get(window);
-          windowState.tupleCount++;
-          // process any count based triggers
-          if (windowState.watermarkArrivalTime == -1) {
-            // watermark has not arrived yet, check for early count based trigger
-            if (earlyTriggerCount > 0 && (windowState.tupleCount % earlyTriggerCount) == 0) {
-              fireTrigger(window, windowState);
-            }
-          } else {
-            // watermark has arrived, check for late count based trigger
-            if (lateTriggerCount > 0 && (windowState.tupleCount % lateTriggerCount) == 0) {
-              fireTrigger(window, windowState);
-            }
+      for (Window window : windowedTuple.getWindows()) {
+        WindowState windowState = windowStateMap.get(window);
+        windowState.tupleCount++;
+        // process any count based triggers
+        if (windowState.watermarkArrivalTime == -1) {
+          // watermark has not arrived yet, check for early count based trigger
+          if (earlyTriggerCount > 0 && (windowState.tupleCount % earlyTriggerCount) == 0) {
+            fireTrigger(window, windowState);
+          }
+        } else {
+          // watermark has arrived, check for late count based trigger
+          if (lateTriggerCount > 0 && (windowState.tupleCount % lateTriggerCount) == 0) {
+            fireTrigger(window, windowState);
           }
         }
       }
@@ -143,18 +156,20 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
           break;
         case EARLY:
           if (trigger instanceof TriggerOption.TimeTrigger) {
-            earlyTriggerMillis = ((TriggerOption.TimeTrigger) trigger).getDuration().getMillis();
+            earlyTriggerMillis = ((TriggerOption.TimeTrigger)trigger).getDuration().getMillis();
           } else if (trigger instanceof TriggerOption.CountTrigger) {
             earlyTriggerCount = ((TriggerOption.CountTrigger)trigger).getCount();
           }
           break;
         case LATE:
           if (trigger instanceof TriggerOption.TimeTrigger) {
-            lateTriggerMillis = ((TriggerOption.TimeTrigger) trigger).getDuration().getMillis();
+            lateTriggerMillis = ((TriggerOption.TimeTrigger)trigger).getDuration().getMillis();
           } else if (trigger instanceof TriggerOption.CountTrigger) {
             lateTriggerCount = ((TriggerOption.CountTrigger)trigger).getCount();
           }
           break;
+        default:
+          throw new RuntimeException("Unexpected watermark option: " + trigger.getWatermarkOpt());
       }
     }
   }
@@ -203,7 +218,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
   }
 
   @Override
-  public void setTimestampExtractor(Function.MapFunction<InputT, Long> timestampExtractor)
+  public void setTimestampExtractor(Function<InputT, Long> timestampExtractor)
   {
     this.timestampExtractor = timestampExtractor;
   }
@@ -219,17 +234,19 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
     if (windowStateMap == null) {
       throw new ValidationException("Window state storage must be set");
     }
-    if (triggerOption.isOnlyFireUpdatedPanes()) {
-      if (retractionStorage == null) {
-        throw new ValidationException("A retraction storage is required for onlyFireUpdatePanes option");
+    if (triggerOption != null) {
+      if (triggerOption.isFiringOnlyUpdatedPanes()) {
+        if (retractionStorage == null) {
+          throw new ValidationException("A retraction storage is required for firingOnlyUpdatedPanes option");
+        }
+        if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
+          throw new ValidationException("DISCARDING accumulation mode is not valid for firingOnlyUpdatedPanes option");
+        }
       }
-      if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
-        throw new ValidationException("DISCARDING accumulation mode is not valid for onlyFireUpdatePanes option");
+      if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING &&
+          retractionStorage == null) {
+        throw new ValidationException("A retraction storage is required for ACCUMULATING_AND_RETRACTING accumulation mode");
       }
-    }
-    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING &&
-        retractionStorage == null) {
-      throw new ValidationException("A retraction storage is required for ACCUMULATING_AND_RETRACTING accumulation mode");
     }
   }
 
@@ -252,7 +269,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
         return 0;
       }
     } else {
-      return timestampExtractor.f(tuple.getValue());
+      return timestampExtractor.apply(tuple.getValue());
     }
   }
 
@@ -293,22 +310,22 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
   {
     List<Window.TimeWindow> windows = new ArrayList<>();
     if (windowOption instanceof WindowOption.TimeWindows) {
-      long durationMillis = ((WindowOption.TimeWindows) windowOption).getDuration().getMillis();
+      long durationMillis = ((WindowOption.TimeWindows)windowOption).getDuration().getMillis();
       long beginTimestamp = timestamp - timestamp % durationMillis;
       windows.add(new Window.TimeWindow(beginTimestamp, durationMillis));
       if (windowOption instanceof WindowOption.SlidingTimeWindows) {
-        long slideBy = ((WindowOption.SlidingTimeWindows) windowOption).getSlideByDuration().getMillis();
+        long slideBy = ((WindowOption.SlidingTimeWindows)windowOption).getSlideByDuration().getMillis();
         // add the sliding windows front and back
         // Note: this messes up the order of the window and we might want to revisit this if the order of the windows
         // matter
         for (long slideBeginTimestamp = beginTimestamp - slideBy;
-             slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
-             slideBeginTimestamp -= slideBy) {
+            slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
+            slideBeginTimestamp -= slideBy) {
           windows.add(new Window.TimeWindow(slideBeginTimestamp, durationMillis));
         }
         for (long slideBeginTimestamp = beginTimestamp + slideBy;
-             slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
-             slideBeginTimestamp += slideBy) {
+            slideBeginTimestamp >= timestamp && timestamp > slideBeginTimestamp + durationMillis;
+            slideBeginTimestamp += slideBy) {
           windows.add(new Window.TimeWindow(slideBeginTimestamp, durationMillis));
         }
       }
@@ -333,7 +350,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
 
 
   @Override
-  public void processWatermark(Tuple.WatermarkTuple<InputT> watermark)
+  public void processWatermark(ControlTuple.Watermark watermark)
   {
     currentWatermark = watermark.getTimestamp();
     long horizon = currentWatermark - allowedLatenessMillis;
@@ -360,16 +377,13 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
         }
       }
     }
-    output.emit((Tuple.WatermarkTuple<OutputT>)watermark);
+    controlOutput.emit(watermark);
   }
 
   @Override
   public void setup(Context.OperatorContext context)
   {
-    if (this.firstWindowMillis <= 0) {
-      this.firstWindowMillis = System.currentTimeMillis();
-    }
-    this.windowWidthMillis = context.getValue(LogicalPlan.STREAMING_WINDOW_SIZE_MILLIS);
+    this.windowWidthMillis = context.getValue(Context.DAGContext.STREAMING_WINDOW_SIZE_MILLIS);
     validate();
   }
 
@@ -379,8 +393,11 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
   @Override
   public void beginWindow(long windowId)
   {
-    this.currentApexWindowId = windowId;
-    this.currentDerivedTimestamp = WindowGenerator.getWindowMillis(currentApexWindowId, firstWindowMillis, windowWidthMillis);
+    if (currentDerivedTimestamp == -1) {
+      currentDerivedTimestamp = ((windowId >> 32) * 1000) + (windowId & 0xffffffffL);
+    } else {
+      currentDerivedTimestamp += windowWidthMillis;
+    }
   }
 
   /**
@@ -419,7 +436,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
     if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
       fireRetractionTrigger(window);
     }
-    fireNormalTrigger(window, triggerOption.isOnlyFireUpdatedPanes());
+    fireNormalTrigger(window, triggerOption.isFiringOnlyUpdatedPanes());
     windowState.lastTriggerFiredTime = currentDerivedTimestamp;
     if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
       clearWindowData(window);
@@ -430,9 +447,9 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
    * This method fires the normal trigger for the given window.
    *
    * @param window
-   * @param onlyFireUpdatedPanes Do not fire trigger if the old value is the same as the new value. If true, retraction storage is required.
+   * @param fireOnlyUpdatedPanes Do not fire trigger if the old value is the same as the new value. If true, retraction storage is required.
    */
-  public abstract void fireNormalTrigger(Window window, boolean onlyFireUpdatedPanes);
+  public abstract void fireNormalTrigger(Window window, boolean fireOnlyUpdatedPanes);
 
   /**
    * This method fires the retraction trigger for the given window. This should only be valid if the accumulation

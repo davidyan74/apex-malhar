@@ -16,39 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
-
-import org.apache.hadoop.classification.InterfaceStability;
+package org.apache.apex.malhar.lib.window;
 
 import java.util.Map;
 import java.util.Set;
 
 /**
- * This interface is for a key/value store for storing data for windowed streams.
- * The key to this key/value store is a pair of (Window, K)
+ * WindowedStorage is a key-value store with the key being the window. The implementation of this interface should
+ * make sure checkpointing and recovery will be done correctly.
  *
- * Note that this interface expects that the implementation takes care of checkpoint recovery
- *
+ * TODO: Look at the possibility of integrating spillable data structure: https://issues.apache.org/jira/browse/APEXMALHAR-2026
  */
-@InterfaceStability.Evolving
-public interface WindowedKeyedStorage<K, V> extends WindowedStorage<Map<K, V>>
+public interface WindowedStorage<T> extends Iterable<Map.Entry<Window, T>>
 {
   /**
-   * Sets the data associated with the given window and the key
+   * Returns true if the storage contains this window
    *
    * @param window
-   * @param key
-   * @param value
    */
-  void put(Window window, K key, V value);
+  boolean containsWindow(Window window);
 
   /**
-   * Gets the key/value pairs associated with the given window
+   * Sets the data associated with the given window
+   *
+   * @param window
+   * @param value
+   */
+  void put(Window window, T value);
+
+  /**
+   * Gets the value associated with the given window
    *
    * @param window
    * @return
    */
-  Iterable<Map.Entry<K, V>> entrySet(Window window);
+  T get(Window window);
 
   /**
    * Gets the windows in the storage that end before the given timestamp
@@ -59,16 +61,7 @@ public interface WindowedKeyedStorage<K, V> extends WindowedStorage<Map<K, V>>
   Set<Window> windowsEndBefore(long timestamp);
 
   /**
-   * Gets the data associated with the given window and the key
-   *
-   * @param window
-   * @param key
-   * @return
-   */
-  V get(Window window, K key);
-
-  /**
-   * Removes all the data associated with the given window
+   * Removes all the data associated with the given window. This does NOT mean removing the window in checkpointed state
    *
    * @param window
    */
@@ -76,7 +69,8 @@ public interface WindowedKeyedStorage<K, V> extends WindowedStorage<Map<K, V>>
 
   /**
    * Removes all data in this storage that is associated with a window at or before the specified timestamp.
-   * This will be used for purging data beyond the allowed lateness
+   * This will be used for purging data beyond the allowed lateness. This does NOT mean removing the windows in checkpointed
+   * state.
    *
    * @param timestamp
    */
@@ -90,4 +84,11 @@ public interface WindowedKeyedStorage<K, V> extends WindowedStorage<Map<K, V>>
    * @param toWindow
    */
   void migrateWindow(Window fromWindow, Window toWindow);
+
+  /**
+   * Returns the iterable of the entries in the storage
+   *
+   * @return
+   */
+  Iterable<Map.Entry<Window, T>> entrySet();
 }

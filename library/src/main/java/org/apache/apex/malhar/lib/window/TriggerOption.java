@@ -16,16 +16,18 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
-
-import com.esotericsoftware.kryo.serializers.FieldSerializer;
-import com.esotericsoftware.kryo.serializers.JavaSerializer;
-import org.apache.hadoop.classification.InterfaceStability;
-import org.joda.time.Duration;
+package org.apache.apex.malhar.lib.window;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import org.joda.time.Duration;
+
+import org.apache.hadoop.classification.InterfaceStability;
+
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+import com.esotericsoftware.kryo.serializers.JavaSerializer;
 
 /**
  * This class describes how triggers should be fired for each window.
@@ -46,7 +48,7 @@ public class TriggerOption
   }
 
   private AccumulationMode accumulationMode = AccumulationMode.DISCARDING;
-  private boolean onlyFireChangedPanes = false;
+  private boolean firingOnlyUpdatedPanes = false;
 
   /**
    * Whether the trigger should be fired before the watermark, at the watermark, or after the watermark
@@ -237,9 +239,9 @@ public class TriggerOption
    *
    * @return
    */
-  public TriggerOption onlyFireUpdatedPanes()
+  public TriggerOption firingOnlyUpdatedPanes()
   {
-    this.onlyFireChangedPanes = true;
+    this.firingOnlyUpdatedPanes = true;
     return this;
   }
 
@@ -269,8 +271,8 @@ public class TriggerOption
    *
    * @return
    */
-  public boolean isOnlyFireUpdatedPanes()
+  public boolean isFiringOnlyUpdatedPanes()
   {
-    return this.onlyFireChangedPanes;
+    return this.firingOnlyUpdatedPanes;
   }
 }

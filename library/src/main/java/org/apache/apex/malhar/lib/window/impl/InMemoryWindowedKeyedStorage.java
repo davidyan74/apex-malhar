@@ -16,15 +16,15 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.impl;
-
-import org.apache.apex.malhar.stream.window.Window;
-import org.apache.apex.malhar.stream.window.WindowedKeyedStorage;
+package org.apache.apex.malhar.lib.window.impl;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+
+import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowedKeyedStorage;
 
 /**
  * This is the in-memory implementation of WindowedKeyedStorage. Do not use this class if you have a large state that

@@ -16,11 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
+package org.apache.apex.malhar.lib.window;
 
-import org.apache.apex.malhar.stream.api.function.Function;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.joda.time.Duration;
+
+import org.apache.hadoop.classification.InterfaceStability;
+
+import com.google.common.base.Function;
 
 /**
  * This interface describes what needs to be implemented for the operator that supports the Apache Beam model of
@@ -63,7 +65,7 @@ public interface WindowedOperator<InputT, AccumT, OutputT>
    *
    * @param timestampExtractor
    */
-  void setTimestampExtractor(Function.MapFunction<InputT, Long> timestampExtractor);
+  void setTimestampExtractor(Function<InputT, Long> timestampExtractor);
 
   /**
    * Assign window(s) for this input tuple
@@ -106,7 +108,7 @@ public interface WindowedOperator<InputT, AccumT, OutputT>
    *
    * @param watermark
    */
-  void processWatermark(Tuple.WatermarkTuple<InputT> watermark);
+  void processWatermark(ControlTuple.Watermark watermark);
 
   /**
    * This method fires the trigger for the given window, and possibly retraction trigger. The implementation should clear

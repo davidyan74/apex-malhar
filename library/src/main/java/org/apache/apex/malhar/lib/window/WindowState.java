@@ -16,32 +16,30 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
+package org.apache.apex.malhar.lib.window;
 
 import org.apache.hadoop.classification.InterfaceStability;
 
-import java.util.Collection;
-import java.util.Map;
-
 /**
- * This interface is for storing data for session windowed streams.
- *
- * @param <K> The key type
- * @param <V> The value type
+ * The state that needs to be stored for each window. The state helps determine whether to throw away a window
+ * (with allowed lateness in WindowOption), and whether to fire a trigger (with TriggerOption)
  */
 @InterfaceStability.Evolving
-public interface SessionWindowedStorage<K, V> extends WindowedKeyedStorage<K, V>
+public class WindowState
 {
   /**
-   * Given the key, the timestamp and the gap, gets the data that falls into timestamp +/- gap.
-   * This is used for getting the entry the data given the timestamp belongs to, and for determining whether to merge
-   * session windows.
-   * This should only return at most two entries if sessions have been merged appropriately.
-   *
-   * @param key the key
-   * @param timestamp the timestamp
-   * @param gap
-   * @return
+   * The timestamp when the watermark arrives. If it has not arrived, -1.
    */
-  Collection<Map.Entry<Window.SessionWindow, V>> getSessionEntries(K key, long timestamp, long gap);
+  public long watermarkArrivalTime = -1;
+
+  /**
+   * The timestamp when the last trigger was fired
+   */
+  public long lastTriggerFiredTime = -1;
+
+  /**
+   * The tuple count. Should be incremented for every tuple that belongs to the associated window
+   */
+  public long tupleCount = 0;
+
 }

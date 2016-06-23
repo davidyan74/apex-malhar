@@ -16,7 +16,32 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.sample.wordcount;
+package org.apache.apex.malhar.lib.window.sample.wordcount;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.joda.time.Duration;
+
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.apex.malhar.lib.window.ControlTuple;
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.WindowOption;
+import org.apache.apex.malhar.lib.window.WindowState;
+import org.apache.apex.malhar.lib.window.impl.InMemoryWindowedKeyedStorage;
+import org.apache.apex.malhar.lib.window.impl.InMemoryWindowedStorage;
+import org.apache.apex.malhar.lib.window.impl.KeyedWindowedOperatorImpl;
+import org.apache.apex.malhar.lib.window.impl.WatermarkImpl;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+
+import com.google.common.base.Throwables;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DAG;
@@ -27,26 +52,6 @@ import com.datatorrent.api.StreamingApplication;
 import com.datatorrent.common.util.BaseOperator;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
 import com.datatorrent.lib.util.KeyValPair;
-import com.google.common.base.Throwables;
-import org.apache.apex.malhar.stream.window.Accumulation;
-import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.WindowOption;
-import org.apache.apex.malhar.stream.window.WindowState;
-import org.apache.apex.malhar.stream.window.impl.InMemoryWindowedKeyedStorage;
-import org.apache.apex.malhar.stream.window.impl.InMemoryWindowedStorage;
-import org.apache.apex.malhar.stream.window.impl.KeyedWindowedOperatorImpl;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.joda.time.Duration;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * This is an example of using the WindowedOperator concepts to do streaming word count.
@@ -56,6 +61,7 @@ public class Application implements StreamingApplication
   public static class WordGenerator extends BaseOperator implements InputOperator
   {
     public final transient DefaultOutputPort<Tuple<KeyValPair<String, Long>>> output = new DefaultOutputPort<>();
+    public final transient DefaultOutputPort<ControlTuple> controlOutput = new DefaultOutputPort<>();
 
     private transient BufferedReader reader;
 
@@ -111,7 +117,7 @@ public class Application implements StreamingApplication
     @Override
     public void endWindow()
     {
-      this.output.emit(new Tuple.WatermarkTuple<KeyValPair<String, Long>>(System.currentTimeMillis() - 15000));
+      this.controlOutput.emit(new WatermarkImpl(System.currentTimeMillis() - 15000));
     }
   }
 

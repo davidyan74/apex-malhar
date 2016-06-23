@@ -16,7 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.sample.pi;
+package org.apache.apex.malhar.lib.window.sample.pi;
+
+import org.joda.time.Duration;
+
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.WindowOption;
+import org.apache.apex.malhar.lib.window.WindowState;
+import org.apache.apex.malhar.lib.window.impl.InMemoryWindowedStorage;
+import org.apache.apex.malhar.lib.window.impl.WindowedOperatorImpl;
+import org.apache.commons.lang3.tuple.MutablePair;
+import org.apache.hadoop.conf.Configuration;
 
 import com.datatorrent.api.DAG;
 import com.datatorrent.api.DefaultOutputPort;
@@ -25,16 +37,6 @@ import com.datatorrent.api.LocalMode;
 import com.datatorrent.api.StreamingApplication;
 import com.datatorrent.common.util.BaseOperator;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
-import org.apache.apex.malhar.stream.window.Accumulation;
-import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.WindowOption;
-import org.apache.apex.malhar.stream.window.WindowState;
-import org.apache.apex.malhar.stream.window.impl.InMemoryWindowedStorage;
-import org.apache.apex.malhar.stream.window.impl.WindowedOperatorImpl;
-import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.hadoop.conf.Configuration;
-import org.joda.time.Duration;
 
 /**
  * This is an example of using the WindowedOperator concepts to calculate the value of pi.

@@ -16,13 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.impl;
+package org.apache.apex.malhar.lib.window.impl;
 
-import org.apache.apex.malhar.stream.window.Accumulation;
-import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.Window;
-import org.apache.apex.malhar.stream.window.WindowedStorage;
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowedStorage;
 
 /**
  * This is an implementation of the WindowedOperator. If your operation is key based, please use {@link KeyedWindowedOperatorImpl}.
@@ -44,10 +44,10 @@ public class WindowedOperatorImpl<InputT, AccumT, OutputT>
   }
 
   @Override
-  public void fireNormalTrigger(Window window, boolean onlyFireUpdatedPanes)
+  public void fireNormalTrigger(Window window, boolean fireOnlyUpdatedPanes)
   {
     AccumT accumulatedValue = dataStorage.get(window);
-    if (onlyFireUpdatedPanes) {
+    if (fireOnlyUpdatedPanes) {
       AccumT oldAccumulatedValue = retractionStorage.get(window);
       if (oldAccumulatedValue != null && oldAccumulatedValue.equals(accumulatedValue)) {
         return;

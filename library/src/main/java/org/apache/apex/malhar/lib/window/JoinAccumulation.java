@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
+package org.apache.apex.malhar.lib.window;
 
 /**
  * This is the interface for accumulation when joining multiple streams.

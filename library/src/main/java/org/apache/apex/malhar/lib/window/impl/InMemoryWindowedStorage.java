@@ -16,16 +16,16 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.impl;
-
-import org.apache.apex.malhar.stream.window.Window;
-import org.apache.apex.malhar.stream.window.WindowedStorage;
+package org.apache.apex.malhar.lib.window.impl;
 
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+
+import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowedStorage;
 
 /**
  * This is the in-memory implementation of WindowedStorage. Do not use this class if you have a large state that

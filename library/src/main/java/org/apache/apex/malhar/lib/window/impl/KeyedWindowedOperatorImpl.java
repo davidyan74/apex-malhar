@@ -16,21 +16,22 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window.impl;
-
-import com.datatorrent.lib.util.KeyValPair;
-import org.apache.apex.malhar.stream.window.Accumulation;
-import org.apache.apex.malhar.stream.window.SessionWindowedStorage;
-import org.apache.apex.malhar.stream.window.TriggerOption;
-import org.apache.apex.malhar.stream.window.Tuple;
-import org.apache.apex.malhar.stream.window.Window;
-import org.apache.apex.malhar.stream.window.WindowOption;
-import org.apache.apex.malhar.stream.window.WindowState;
-import org.apache.apex.malhar.stream.window.WindowedKeyedStorage;
+package org.apache.apex.malhar.lib.window.impl;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.apex.malhar.lib.window.Accumulation;
+import org.apache.apex.malhar.lib.window.SessionWindowedStorage;
+import org.apache.apex.malhar.lib.window.TriggerOption;
+import org.apache.apex.malhar.lib.window.Tuple;
+import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowOption;
+import org.apache.apex.malhar.lib.window.WindowState;
+import org.apache.apex.malhar.lib.window.WindowedKeyedStorage;
+
+import com.datatorrent.lib.util.KeyValPair;
 
 /**
  * This is an implementation of WindowedOperator that takes in key value pairs as input and gives out key value pairs
@@ -44,8 +45,8 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
   protected void assignSessionWindows(List<Window> windows, long timestamp, Tuple<KeyValPair<KeyT, InputValT>> inputTuple)
   {
     KeyT key = inputTuple.getValue().getKey();
-    WindowOption.SessionWindows sessionWindowOption = (WindowOption.SessionWindows) windowOption;
-    SessionWindowedStorage<KeyT, AccumT> sessionStorage = (SessionWindowedStorage<KeyT, AccumT>) dataStorage;
+    WindowOption.SessionWindows sessionWindowOption = (WindowOption.SessionWindows)windowOption;
+    SessionWindowedStorage<KeyT, AccumT> sessionStorage = (SessionWindowedStorage<KeyT, AccumT>)dataStorage;
     Collection<Map.Entry<Window.SessionWindow, AccumT>> sessionEntries = sessionStorage.getSessionEntries(key, timestamp, sessionWindowOption.getMinGap().getMillis());
     Window.SessionWindow<KeyT> sessionWindowToAssign;
     switch (sessionEntries.size()) {
@@ -128,10 +129,10 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
   }
 
   @Override
-  public void fireNormalTrigger(Window window, boolean onlyFireUpdatedPanes)
+  public void fireNormalTrigger(Window window, boolean fireOnlyUpdatedPanes)
   {
     for (Map.Entry<KeyT, AccumT> entry : dataStorage.entrySet(window)) {
-      if (onlyFireUpdatedPanes) {
+      if (fireOnlyUpdatedPanes) {
         AccumT oldAccumulatedValue = retractionStorage.get(window, entry.getKey());
         if (oldAccumulatedValue != null && oldAccumulatedValue.equals(entry.getValue())) {
           continue;

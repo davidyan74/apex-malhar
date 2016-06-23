@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *   http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
@@ -16,11 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
-
-import org.apache.hadoop.classification.InterfaceStability;
+package org.apache.apex.malhar.lib.window;
 
 import java.util.Comparator;
+
+import org.apache.hadoop.classification.InterfaceStability;
 
 /**
  * This interface describes the individual window.
@@ -29,6 +29,7 @@ import java.util.Comparator;
 public interface Window
 {
   long getBeginTimestamp();
+
   long getDurationMillis();
 
   /**
@@ -45,6 +46,7 @@ public interface Window
     {
       return 0;
     }
+
     public long getDurationMillis()
     {
       return Long.MAX_VALUE;
@@ -69,7 +71,7 @@ public interface Window
       } else if (o1.getDurationMillis() > o2.getDurationMillis()) {
         return 1;
       } else if (o1 instanceof SessionWindow && o2 instanceof SessionWindow) {
-        return Long.compare(((SessionWindow) o1).getKey().hashCode(), ((SessionWindow) o2).getKey().hashCode());
+        return Long.compare(((SessionWindow)o1).getKey().hashCode(), ((SessionWindow)o2).getKey().hashCode());
       } else {
         return 0;
       }

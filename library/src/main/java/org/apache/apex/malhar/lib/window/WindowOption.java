@@ -16,12 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.apex.malhar.stream.window;
+package org.apache.apex.malhar.lib.window;
+
+import org.joda.time.Duration;
+
+import org.apache.hadoop.classification.InterfaceStability;
 
 import com.esotericsoftware.kryo.serializers.FieldSerializer;
 import com.esotericsoftware.kryo.serializers.JavaSerializer;
-import org.apache.hadoop.classification.InterfaceStability;
-import org.joda.time.Duration;
 
 /**
  * This class describes the windowing scheme, which includes:
