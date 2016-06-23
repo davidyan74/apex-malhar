@@ -37,6 +37,7 @@ import java.util.List;
 @InterfaceStability.Evolving
 public class TriggerOption
 {
+
   public enum AccumulationMode
   {
     DISCARDING,
@@ -45,6 +46,7 @@ public class TriggerOption
   }
 
   private AccumulationMode accumulationMode = AccumulationMode.DISCARDING;
+  private boolean onlyFireChangedPanes = false;
 
   /**
    * Whether the trigger should be fired before the watermark, at the watermark, or after the watermark
@@ -223,9 +225,21 @@ public class TriggerOption
    *
    * @return
    */
-  public TriggerOption accumulatingAndRetractingFiredPane()
+  public TriggerOption accumulatingAndRetractingFiredPanes()
   {
     this.accumulationMode = AccumulationMode.ACCUMULATING_AND_RETRACTING;
+    return this;
+  }
+
+  /**
+   * Only fire triggers for data that has changed from the last trigger. This only applies to ACCUMULATING and
+   * ACCUMULATING_AND_RETRACTING accumulation modes.
+   *
+   * @return
+   */
+  public TriggerOption onlyFireUpdatedPanes()
+  {
+    this.onlyFireChangedPanes = true;
     return this;
   }
 
@@ -247,5 +261,16 @@ public class TriggerOption
   public List<Trigger> getTriggerList()
   {
     return Collections.unmodifiableList(triggerList);
+  }
+
+  /**
+   * Returns whether we should only fire panes that have been updated since the last trigger.
+   * TODO: Validation needs to be done because this setting does not make sense for DISCARDING accumulation mode
+   *
+   * @return
+   */
+  public boolean isOnlyFireUpdatedPanes()
+  {
+    return this.onlyFireChangedPanes;
   }
 }

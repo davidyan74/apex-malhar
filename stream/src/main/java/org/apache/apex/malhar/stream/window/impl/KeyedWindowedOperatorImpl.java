@@ -128,9 +128,15 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
   }
 
   @Override
-  public void fireNormalTrigger(Window window)
+  public void fireNormalTrigger(Window window, boolean onlyFireUpdatedPanes)
   {
     for (Map.Entry<KeyT, AccumT> entry : dataStorage.entrySet(window)) {
+      if (onlyFireUpdatedPanes) {
+        AccumT oldAccumulatedValue = retractionStorage.get(window, entry.getKey());
+        if (oldAccumulatedValue != null && oldAccumulatedValue.equals(entry.getValue())) {
+          continue;
+        }
+      }
       output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(),
           new KeyValPair<>(entry.getKey(), accumulation.getOutput(entry.getValue()))));
       if (retractionStorage != null) {

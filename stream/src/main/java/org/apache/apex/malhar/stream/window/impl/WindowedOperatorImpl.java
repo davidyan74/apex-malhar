@@ -44,9 +44,15 @@ public class WindowedOperatorImpl<InputT, AccumT, OutputT>
   }
 
   @Override
-  public void fireNormalTrigger(Window window)
+  public void fireNormalTrigger(Window window, boolean onlyFireUpdatedPanes)
   {
     AccumT accumulatedValue = dataStorage.get(window);
+    if (onlyFireUpdatedPanes) {
+      AccumT oldAccumulatedValue = retractionStorage.get(window);
+      if (oldAccumulatedValue != null && oldAccumulatedValue.equals(accumulatedValue)) {
+        return;
+      }
+    }
     output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(), accumulation.getOutput(accumulatedValue)));
     if (retractionStorage != null) {
       retractionStorage.put(window, accumulatedValue);
