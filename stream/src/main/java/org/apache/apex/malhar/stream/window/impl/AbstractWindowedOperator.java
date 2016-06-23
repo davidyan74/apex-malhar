@@ -42,6 +42,7 @@ import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.validation.ValidationException;
 
 /**
  * This is the abstract windowed operator class that implements most of the windowing, triggering, and accumulating
@@ -207,6 +208,31 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
     this.timestampExtractor = timestampExtractor;
   }
 
+  public void validate() throws ValidationException
+  {
+    if (accumulation == null) {
+      throw new ValidationException("Accumulation must be set");
+    }
+    if (dataStorage == null) {
+      throw new ValidationException("Data storage must be set");
+    }
+    if (windowStateMap == null) {
+      throw new ValidationException("Window state storage must be set");
+    }
+    if (triggerOption.isOnlyFireUpdatedPanes()) {
+      if (retractionStorage == null) {
+        throw new ValidationException("A retraction storage is required for onlyFireUpdatePanes option");
+      }
+      if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.DISCARDING) {
+        throw new ValidationException("DISCARDING accumulation mode is not valid for onlyFireUpdatePanes option");
+      }
+    }
+    if (triggerOption.getAccumulationMode() == TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING &&
+        retractionStorage == null) {
+      throw new ValidationException("A retraction storage is required for ACCUMULATING_AND_RETRACTING accumulation mode");
+    }
+  }
+
   @Override
   public Tuple.WindowedTuple<InputT> getWindowedValue(Tuple<InputT> input)
   {
@@ -344,6 +370,7 @@ public abstract class AbstractWindowedOperator<InputT, AccumT, OutputT, DataStor
       this.firstWindowMillis = System.currentTimeMillis();
     }
     this.windowWidthMillis = context.getValue(LogicalPlan.STREAMING_WINDOW_SIZE_MILLIS);
+    validate();
   }
 
   /**

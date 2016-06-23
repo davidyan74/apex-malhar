@@ -265,7 +265,7 @@ public class TriggerOption
 
   /**
    * Returns whether we should only fire panes that have been updated since the last trigger.
-   * TODO: Validation needs to be done because this setting does not make sense for DISCARDING accumulation mode
+   * When this option is set, DISCARDING accumulation mode must not be used.
    *
    * @return
    */
