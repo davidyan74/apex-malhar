@@ -25,6 +25,7 @@ import org.joda.time.Duration;
 
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.window.TriggerOption;
+import org.apache.apex.malhar.stream.window.Tuple;
 
 import com.datatorrent.lib.util.KeyValPair;
 
@@ -68,7 +69,7 @@ public interface WindowedStream<T> extends ApexStream<T>
    * Count of all tuples
    * @return new stream of Integer
    */
-  <STREAM extends WindowedStream<Integer>> STREAM count();
+  <STREAM extends WindowedStream<Long>> STREAM count();
 
   /**
    * Count tuples by the key<br>
@@ -76,7 +77,7 @@ public interface WindowedStream<T> extends ApexStream<T>
    * If not, use the tuple itself as a key
    * @return new stream of Map
    */
-  <STREAM extends WindowedStream<Map.Entry<Object, Integer>>> STREAM countByKey();
+  <K, STREAM extends WindowedStream<Tuple<KeyValPair<K, Long>>>> STREAM countByKey(Function.MapFunction<T, Tuple<KeyValPair<K, Long>>> convertToKeyValue);
 
   /**
    *

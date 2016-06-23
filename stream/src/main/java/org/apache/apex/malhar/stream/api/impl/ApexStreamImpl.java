@@ -46,7 +46,6 @@ import com.datatorrent.api.DAG;
 import com.datatorrent.api.LocalMode;
 import com.datatorrent.api.Operator;
 import com.datatorrent.lib.io.ConsoleOutputOperator;
-import com.datatorrent.lib.util.KeyValPair;
 import com.datatorrent.stram.StramLocalCluster;
 import com.datatorrent.stram.plan.logical.LogicalPlan;
 
@@ -56,7 +55,7 @@ import com.datatorrent.stram.plan.logical.LogicalPlan;
  *
  * @since 3.4.0
  */
-public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
+public class ApexStreamImpl<T> implements ApexStream<T>
 {
 
   private static Set<Attribute<?>> OPERATOR_ATTRIBUTES;
@@ -107,111 +106,6 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
 
   }
 
-  @Override
-  public <STREAM extends WindowedStream<Integer>> STREAM count()
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<Map.Entry<Object, Integer>>> STREAM countByKey()
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<Map<Object, Integer>>> STREAM countByKey(int key)
-  {
-    return null;
-  }
-
-  @Override
-  public <TUPLE, KEY, STREAM extends WindowedStream<Map.Entry<KEY, List<TUPLE>>>> STREAM topByKey(int N, Function.MapFunction<T, KeyValPair<KEY, TUPLE>> convertToKeyVal)
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<T>> STREAM top(int N)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM combineByKey()
-  {
-    return null;
-  }
-
-  @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM combine()
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<T>> STREAM reduce(String name, Function.ReduceFunction<T> reduce)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM fold(O initialValue, Function.FoldFunction<T, O> fold)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, STREAM extends WindowedStream<O>> STREAM fold(String name, O initialValue, Function.FoldFunction<T, O>
-      fold)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, K, STREAM extends WindowedStream<KeyValPair<K, O>>> STREAM foldByKey(String name, Function.FoldFunction<T, KeyValPair<K, O>> fold)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, K, STREAM extends WindowedStream<KeyValPair<K, O>>> STREAM foldByKey(Function.FoldFunction<T,
-      KeyValPair<K, O>> fold)
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<T>> STREAM reduce(Function.ReduceFunction<T> reduce)
-  {
-    return null;
-  }
-
-  @Override
-  public <O, K, STREAM extends WindowedStream<KeyValPair<K, Iterable<O>>>> STREAM groupByKey(Function.MapFunction<T,
-      KeyValPair<K, O>> convertToKeyVal)
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<Iterable<T>>> STREAM group()
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<T>> STREAM resetTrigger(TriggerOption option)
-  {
-    return null;
-  }
-
-  @Override
-  public <STREAM extends WindowedStream<T>> STREAM resetAllowedLateness(Duration allowedLateness)
-  {
-    return null;
-  }
-
   /**
    * The extension point of the stream
    *
@@ -247,18 +141,19 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
     }
   }
 
+
   /**
    * Graph behind the stream
    */
-  private DagMeta graph;
+  protected DagMeta graph;
 
-  private ApexStream<T> delegator;
+  protected ApexStream<T> delegator;
 
   /**
    * Right now the stream only support single extend point
    * You can have multiple downstream operators connect to this single extend point though
    */
-  private Brick<T> lastBrick;
+  protected Brick<T> lastBrick;
 
   public Brick<T> getLastBrick()
   {
@@ -386,7 +281,7 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
       newBrick.lastStream = Pair.<Operator.OutputPort, Operator.InputPort>of(lastBrick.lastOutput, inputPort);
     }
 
-    return (STREAM)new ApexStreamImpl<>(this.graph, newBrick);
+    return (STREAM)newStream(this.graph, newBrick);
   }
 
   @Override
@@ -573,19 +468,33 @@ public class ApexStreamImpl<T> implements ApexStream<T>, WindowedStream<T>
   @Override
   public WindowedStream<T> window(WindowOption option)
   {
-    return null;
+    return window(option, null, null);
   }
 
   @Override
   public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption)
   {
-    return null;
+    return window(windowOption, triggerOption, null);
   }
 
   @Override
   public WindowedStream<T> window(WindowOption windowOption, TriggerOption triggerOption, Duration allowLateness)
   {
-    return null;
+    ApexWindowedStreamImpl<T> windowedStream = new ApexWindowedStreamImpl<>();
+    windowedStream.lastBrick = lastBrick;
+    windowedStream.graph = graph;
+    windowedStream.delegator = delegator;
+    windowedStream.windowOption = windowOption;
+    windowedStream.triggerOption = triggerOption;
+    windowedStream.allowedLateness = allowLateness;
+    return windowedStream;
+  }
+
+  protected <O> ApexStream<O> newStream(DagMeta graph, Brick<O> newBrick) {
+    ApexStreamImpl<O> newstream = new ApexStreamImpl<>();
+    newstream.graph = graph;
+    newstream.lastBrick = newBrick;
+    return newstream;
   }
 
 }

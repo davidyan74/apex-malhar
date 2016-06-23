@@ -31,6 +31,7 @@ import org.apache.apex.malhar.stream.api.CompositeStreamTransform;
 import org.apache.apex.malhar.stream.api.WindowedStream;
 import org.apache.apex.malhar.stream.api.function.Function;
 import org.apache.apex.malhar.stream.api.impl.StreamFactory;
+import org.apache.apex.malhar.stream.window.Tuple;
 import org.apache.apex.malhar.stream.window.WindowOption;
 
 import com.google.common.collect.Sets;
@@ -212,13 +213,21 @@ public class AutoComplete
         return null;
       }
 
-      ApexStream<CompletionCandidate> candidates = ((WindowedStream)inputStream).countByKey()
-          .map(new Function.MapFunction<Map.Entry<Object, Integer>, CompletionCandidate>()
+      ApexStream<CompletionCandidate> candidates = ((WindowedStream<String>)inputStream).countByKey(new Function.MapFunction<String, Tuple<KeyValPair<String, Long>>>()
+
+      {
+        @Override
+        public Tuple<KeyValPair<String, Long>> f(String input)
+        {
+          return new Tuple.PlainTuple<>(new KeyValPair<>(input, 1l));
+        }
+      })
+          .map(new Function.MapFunction<Tuple<KeyValPair<String, Long>>, CompletionCandidate>()
           {
             @Override
-            public CompletionCandidate f(Map.Entry<Object, Integer> input)
+            public CompletionCandidate f(Tuple<KeyValPair<String, Long>> input)
             {
-              return new CompletionCandidate((String)input.getKey(), input.getValue());
+              return new CompletionCandidate(input.getValue().getKey(), input.getValue().getValue());
             }
           });
 
