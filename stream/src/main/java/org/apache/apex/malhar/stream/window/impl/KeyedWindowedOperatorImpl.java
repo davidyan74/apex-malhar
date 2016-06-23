@@ -137,8 +137,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
           continue;
         }
       }
-      output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(),
-          new KeyValPair<>(entry.getKey(), accumulation.getOutput(entry.getValue()))));
+      output.emit(new Tuple.WindowedTuple<>(window, new KeyValPair<>(entry.getKey(), accumulation.getOutput(entry.getValue()))));
       if (retractionStorage != null) {
         retractionStorage.put(window, entry.getKey(), entry.getValue());
       }
@@ -152,8 +151,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
       throw new UnsupportedOperationException();
     }
     for (Map.Entry<KeyT, AccumT> entry : retractionStorage.entrySet(window)) {
-      output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(),
-          new KeyValPair<>(entry.getKey(), accumulation.getRetraction(entry.getValue()))));
+      output.emit(new Tuple.WindowedTuple<>(window, new KeyValPair<>(entry.getKey(), accumulation.getRetraction(entry.getValue()))));
     }
   }
 

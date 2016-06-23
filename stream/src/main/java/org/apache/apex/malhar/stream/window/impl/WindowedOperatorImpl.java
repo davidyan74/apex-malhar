@@ -53,7 +53,7 @@ public class WindowedOperatorImpl<InputT, AccumT, OutputT>
         return;
       }
     }
-    output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(), accumulation.getOutput(accumulatedValue)));
+    output.emit(new Tuple.WindowedTuple<>(window, accumulation.getOutput(accumulatedValue)));
     if (retractionStorage != null) {
       retractionStorage.put(window, accumulatedValue);
     }
@@ -66,6 +66,6 @@ public class WindowedOperatorImpl<InputT, AccumT, OutputT>
       throw new UnsupportedOperationException();
     }
     AccumT accumulatedValue = retractionStorage.get(window);
-    output.emit(new Tuple.WindowedTuple<>(window, window.getBeginTimestamp(), accumulation.getRetraction(accumulatedValue)));
+    output.emit(new Tuple.WindowedTuple<>(window, accumulation.getRetraction(accumulatedValue)));
   }
 }

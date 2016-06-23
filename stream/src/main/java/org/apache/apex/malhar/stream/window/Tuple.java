@@ -113,17 +113,19 @@ public interface Tuple<T>
     {
     }
 
-    public WindowedTuple(Window window, long timestamp, T value)
+    public WindowedTuple(Window window, T value)
     {
-      super(timestamp, value);
+      super(window.getBeginTimestamp(), value);
       this.windows.add(window);
     }
 
-    public List<Window> getWindows() {
+    public List<Window> getWindows()
+    {
       return windows;
     }
 
-    public void addWindow(Window window) {
+    public void addWindow(Window window)
+    {
       this.windows.add(window);
     }
   }
