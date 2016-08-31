@@ -18,9 +18,11 @@
  */
 package org.apache.apex.malhar.lib.window.impl;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 import org.joda.time.Duration;
 
@@ -28,6 +30,7 @@ import org.apache.apex.malhar.lib.window.ControlTuple;
 import org.apache.apex.malhar.lib.window.TriggerOption;
 import org.apache.apex.malhar.lib.window.Tuple;
 import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowOption;
 import org.apache.apex.malhar.lib.window.WindowState;
 import org.apache.apex.malhar.lib.window.WindowedStorage;
 
@@ -41,14 +44,17 @@ import com.datatorrent.api.InputOperator;
 import com.datatorrent.api.LocalMode;
 import com.datatorrent.api.StreamingApplication;
 import com.datatorrent.common.util.BaseOperator;
+import com.datatorrent.lib.util.KeyValPair;
+import com.datatorrent.stram.StramLocalCluster;
 
 /**
- * Test application
+ * Test application for {@link KeyedWindowedJoinOperatorImpl}
  */
-public class WindowedJoinOperatorTestApplication implements StreamingApplication
+public class KeyedWindowedJoinOperatorTestApplication implements StreamingApplication
 {
   private static WindowedStorage.WindowedPlainStorage<WindowState> windowStateMap = new InMemoryWindowedStorage<>();
   private static final long windowDuration = 1000;
+  private static final String[] keys = new String[]{"A", "B", "C", "D", "E"};
 
 
   public static Window.TimeWindow assignTestWindow(long timestamp)
@@ -67,7 +73,7 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
     private long watermarkTime;
     private long startingTime;
 
-    public final transient DefaultOutputPort<Tuple.WindowedTuple<Integer>> output = new DefaultOutputPort<>();
+    public final transient DefaultOutputPort<Tuple.WindowedTuple<KeyValPair<String, Integer>>> output = new DefaultOutputPort<>();
     public final transient DefaultOutputPort<ControlTuple> watermarkDefaultOutputPort = new DefaultOutputPort<>();
 
     @Override
@@ -84,7 +90,7 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
     {
       while (i <= 20) {
         if (System.currentTimeMillis() - startingTime >= (i + 1) * 400) {
-          output.emit(new Tuple.WindowedTuple<Integer>(assignTestWindow(System.currentTimeMillis()), i));
+          output.emit(new Tuple.WindowedTuple<KeyValPair<String, Integer>>(assignTestWindow(System.currentTimeMillis()), new KeyValPair<String, Integer>(keys[i % 5], i)));
           i++;
         }
       }
@@ -105,7 +111,7 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
     private long watermarkTime;
     private long startingTime;
 
-    public final transient DefaultOutputPort<Tuple.WindowedTuple<Integer>> output = new DefaultOutputPort<>();
+    public final transient DefaultOutputPort<Tuple.WindowedTuple<KeyValPair<String, Integer>>> output = new DefaultOutputPort<>();
     public final transient DefaultOutputPort<ControlTuple> watermarkDefaultOutputPort = new DefaultOutputPort<>();
 
 
@@ -123,7 +129,7 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
     {
       while (i <= 20) {
         if (System.currentTimeMillis() - startingTime >= (i + 1) * 400) {
-          output.emit(new Tuple.WindowedTuple<Integer>(assignTestWindow(System.currentTimeMillis()), 10 * i));
+          output.emit(new Tuple.WindowedTuple<KeyValPair<String, Integer>>(assignTestWindow(System.currentTimeMillis()), new KeyValPair<String, Integer>(keys[i % 5], 10 * i)));
           i++;
         }
       }
@@ -140,14 +146,14 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
 
   public static class Collector extends BaseOperator
   {
-    public static List<List<List<Integer>>> result = new ArrayList<>();
+    public static Map<String, List<List<Integer>>> result = new HashMap<>();
 
-    public final transient DefaultInputPort<Tuple<List<List<Integer>>>> input = new DefaultInputPort<Tuple<List<List<Integer>>>>()
+    public final transient DefaultInputPort<Tuple.WindowedTuple<KeyValPair<String, List<List<Integer>>>>> input = new DefaultInputPort<Tuple.WindowedTuple<KeyValPair<String, List<List<Integer>>>>>()
     {
       @Override
-      public void process(Tuple<List<List<Integer>>> tuple)
+      public void process(Tuple.WindowedTuple<KeyValPair<String, List<List<Integer>>>> tuple)
       {
-        result.add(tuple.getValue());
+        result.put(tuple.getValue().getKey(), tuple.getValue().getValue());
       }
     };
   }
@@ -155,16 +161,19 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
   @Override
   public void populateDAG(DAG dag, Configuration conf)
   {
-    WindowedJoinOperatorImpl<Integer, Integer, List<Set<Integer>>, List<List<Integer>>> op
-        = dag.addOperator("join", new WindowedJoinOperatorImpl<Integer, Integer, List<Set<Integer>>, List<List<Integer>>>());
-    op.setAccumulation(new CoGroup<Integer>(2));
-    op.setDataStorage(new InMemoryWindowedStorage<List<Set<Integer>>>());
-    op.setRetractionStorage(new InMemoryWindowedStorage<List<List<Integer>>>());
+    KeyedWindowedJoinOperatorImpl<String, Integer, Integer, List<Set<Integer>>, List<List<Integer>>> op
+        = dag.addOperator("join", new KeyedWindowedJoinOperatorImpl<String, Integer, Integer, List<Set<Integer>>, List<List<Integer>>>());
+
+    //op.setAccumulation(new CoGroup<Integer>(2));
+    op.setAccumulation(new Combine<Integer>(2));
+
+    op.setDataStorage(new InMemoryWindowedKeyedStorage<String, List<Set<Integer>>>());
+    op.setRetractionStorage(new InMemoryWindowedKeyedStorage<String, List<List<Integer>>>());
     op.setWindowStateStorage(windowStateMap);
 
     // Can select one of the following window options, or don't select any of them.
-    //op.setWindowOption(new WindowOption.GlobalWindow());
-    //op.setWindowOption(new WindowOption.TimeWindows(Duration.millis(2000)));
+    op.setWindowOption(new WindowOption.GlobalWindow());
+    //op.setWindowOption(new WindowOption.TimeWindows(Duration.millis(4000)));
 
     op.setTriggerOption(new TriggerOption().withEarlyFiringsAtEvery(1).accumulatingFiredPanes());
     op.setAllowedLateness(Duration.millis(500));
@@ -186,8 +195,17 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
   {
     LocalMode lma = LocalMode.newInstance();
     Configuration conf = new Configuration(false);
-    lma.prepareDAG(new WindowedJoinOperatorTestApplication(), conf);
+    lma.prepareDAG(new KeyedWindowedJoinOperatorTestApplication(), conf);
     LocalMode.Controller lc = lma.getController();
-    lc.run(10000);
+    ((StramLocalCluster)lc).setExitCondition(new Callable<Boolean>()
+    {
+      @Override
+      public Boolean call() throws Exception
+      {
+        return false;
+      }
+    });
+    lc.run(20000);
+    System.out.println(Collector.result);
   }
 }
