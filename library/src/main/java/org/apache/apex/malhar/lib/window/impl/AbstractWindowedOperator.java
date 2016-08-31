@@ -77,12 +77,12 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
 
   private Function<InputT, Long> timestampExtractor;
 
-  private long currentWatermark = -1;
-  private long watermarkTimestamp = -1;
+  protected long currentWatermark = -1;
+  protected long watermarkTimestamp = -1;
   private boolean triggerAtWatermark;
-  private long earlyTriggerCount;
+  protected long earlyTriggerCount;
   private long earlyTriggerMillis;
-  private long lateTriggerCount;
+  protected long lateTriggerCount;
   private long lateTriggerMillis;
   private long currentDerivedTimestamp = -1;
   private long timeIncrement;
@@ -292,6 +292,11 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
   {
     if (windowOption == null && input instanceof Tuple.WindowedTuple) {
       // inherit the windows from upstream
+      for (Window window : ((Tuple.WindowedTuple<InputT>)input).getWindows()) {
+        if (!windowStateMap.containsWindow(window)) {
+          windowStateMap.put(window, new WindowState());
+        }
+      }
       return (Tuple.WindowedTuple<InputT>)input;
     } else {
       return new Tuple.WindowedTuple<>(assignWindows(input), extractTimestamp(input), input.getValue());
@@ -346,7 +351,7 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
    * @param timestamp
    * @return
    */
-  private Collection<Window.TimeWindow> getTimeWindowsForTimestamp(long timestamp)
+  protected Collection<Window.TimeWindow> getTimeWindowsForTimestamp(long timestamp)
   {
     Set<Window.TimeWindow> windows = new TreeSet<>();
     if (windowOption instanceof WindowOption.TimeWindows) {
