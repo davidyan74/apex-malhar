@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,12 +57,12 @@ public class InMemoryWindowedKeyedStorage<K, V> extends InMemoryWindowedStorage<
   }
 
   @Override
-  public Set<Map.Entry<K, V>> entrySet(Window window)
+  public Iterator<Map.Entry<K, V>> iterator(Window window)
   {
     if (map.containsKey(window)) {
-      return map.get(window).entrySet();
+      return map.get(window).entrySet().iterator();
     } else {
-      return Collections.emptySet();
+      return Collections.emptyIterator();
     }
   }
 

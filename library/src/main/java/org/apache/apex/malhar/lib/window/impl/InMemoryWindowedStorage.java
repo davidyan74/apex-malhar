@@ -40,12 +40,6 @@ public class InMemoryWindowedStorage<T> implements WindowedStorage.WindowedPlain
   protected final TreeMap<Window, T> map = new TreeMap<>();
 
   @Override
-  public long size()
-  {
-    return map.size();
-  }
-
-  @Override
   public void put(Window window, T value)
   {
     map.put(window, value);

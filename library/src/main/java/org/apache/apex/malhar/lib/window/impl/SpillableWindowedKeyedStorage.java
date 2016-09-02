@@ -40,6 +40,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.google.common.base.Function;
+import com.google.common.collect.PeekingIterator;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.netlet.util.Slice;
@@ -65,10 +66,10 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
 
   private static final Logger LOG = LoggerFactory.getLogger(SpillableWindowedKeyedStorage.class);
 
-  private class KVIterator implements Iterator<Map.Entry<K, V>>
+  private class KVIterator implements PeekingIterator<Map.Entry<K, V>>
   {
     final Window window;
-    Iterator<Map.Entry<Pair<Window, K>, V>> iterator;
+    PeekingIterator<Map.Entry<Pair<Window, K>, V>> iterator;
 
     KVIterator(Window window)
     {
@@ -79,14 +80,31 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
     @Override
     public boolean hasNext()
     {
-      return iterator != null && iterator.hasNext() && ;
+      if (iterator != null && iterator.hasNext()) {
+        Map.Entry<Pair<Window, K>, V> next = iterator.peek();
+        return window.equals(next.getKey().getLeft());
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public Map.Entry<K, V> peek()
+    {
+      Map.Entry<Pair<Window, K>, V> next = iterator.peek();
+      if (window.equals(next.getKey().getLeft())) {
+        return new AbstractMap.SimpleEntry<>(next.getKey().getRight(), next.getValue());
+      } else {
+        throw new NoSuchElementException();
+      }
     }
 
     @Override
     public Map.Entry<K, V> next()
     {
-      Map.Entry<Pair<Window, K>, V> next = iterator.next();
+      Map.Entry<Pair<Window, K>, V> next = iterator.peek();
       if (window.equals(next.getKey().getLeft())) {
+        iterator.next();
         return new AbstractMap.SimpleEntry<>(next.getKey().getRight(), next.getValue());
       } else {
         throw new NoSuchElementException();
@@ -147,21 +165,12 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   }
 
   @Override
-  public long size()
-  {
-    return windowKeyToValueMap.get(new ImmutablePair<Window, K>(null, null));
-  }
-
-  @Override
   public void remove(Window window)
   {
-    List<K> keys = windowToKeysMap.get(window);
-    for (K key : keys) {
-      windowKeyToValueMap.remove(new ImmutablePair<>(window, key));
+    Iterator<Map.Entry<K, V>> it = iterator(window);
+    while (it.hasNext()) {
+      it.remove();
     }
-    LOG.debug("after windowKeyToValueMap size {}", windowKeyToValueMap.size());
-    windowToKeysMap.removeAll(window);
-    LOG.debug("after windowKeyToValueMap size {}", windowToKeysMap.size());
   }
 
   @Override
@@ -206,23 +215,13 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   @Override
   public void put(Window window, K key, V value)
   {
-    if (!windowToKeysMap.containsEntry(window, key)) {
-      windowToKeysMap.put(window, key);
-    }
     windowKeyToValueMap.put(new ImmutablePair<>(window, key), value);
   }
 
   @Override
-  public Iterable<Map.Entry<K, V>> entrySet(final Window window)
+  public Iterator<Map.Entry<K, V>> iterator(final Window window)
   {
-    return new Iterable<Map.Entry<K, V>>()
-    {
-      @Override
-      public Iterator<Map.Entry<K, V>> iterator()
-      {
-        return new KVIterator(window);
-      }
-    };
+    return new KVIterator(window);
   }
 
   @Override

@@ -18,6 +18,7 @@
  */
 package org.apache.apex.malhar.lib.window;
 
+import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.hadoop.classification.InterfaceStability;
@@ -38,13 +39,6 @@ public interface WindowedStorage extends Component<Context.OperatorContext>
    * @param window
    */
   boolean containsWindow(Window window);
-
-  /**
-   * Returns the number of windows in the storage
-   *
-   * @return
-   */
-  long size();
 
   /**
    * Removes all the data associated with the given window. This does NOT mean removing the window in checkpointed state
@@ -105,12 +99,12 @@ public interface WindowedStorage extends Component<Context.OperatorContext>
     void put(Window window, K key, V value);
 
     /**
-     * Gets the key/value pairs associated with the given window
+     * Gets the iterator over the key/value pairs associated with the given window
      *
      * @param window
      * @return
      */
-    Iterable<Map.Entry<K, V>> entrySet(Window window);
+    Iterator<Map.Entry<K, V>> iterator(Window window);
 
     /**
      * Gets the data associated with the given window and the key
