@@ -107,6 +107,14 @@ public interface WindowedStorage extends Component<Context.OperatorContext>
     Iterator<Map.Entry<K, V>> iterator(Window window);
 
     /**
+     * Gets the iterable over the key/value pairs associated with the given window
+     *
+     * @param window
+     * @return
+     */
+    Iterable<Map.Entry<K, V>> entries(Window window);
+
+    /**
      * Gets the data associated with the given window and the key
      *
      * @param window

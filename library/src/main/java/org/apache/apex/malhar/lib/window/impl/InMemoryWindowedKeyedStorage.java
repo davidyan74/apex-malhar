@@ -67,6 +67,19 @@ public class InMemoryWindowedKeyedStorage<K, V> extends InMemoryWindowedStorage<
   }
 
   @Override
+  public Iterable<Map.Entry<K, V>> entries(final Window window)
+  {
+    return new Iterable<Map.Entry<K, V>>()
+    {
+      @Override
+      public Iterator<Map.Entry<K, V>> iterator()
+      {
+        return InMemoryWindowedKeyedStorage.this.iterator(window);
+      }
+    };
+  }
+
+  @Override
   public V get(Window window, K key)
   {
     if (map.containsKey(window)) {

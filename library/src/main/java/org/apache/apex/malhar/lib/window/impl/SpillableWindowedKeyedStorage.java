@@ -20,7 +20,6 @@ package org.apache.apex.malhar.lib.window.impl;
 
 import java.util.AbstractMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
@@ -222,6 +221,19 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   public Iterator<Map.Entry<K, V>> iterator(final Window window)
   {
     return new KVIterator(window);
+  }
+
+  @Override
+  public Iterable<Map.Entry<K, V>> entries(final Window window)
+  {
+    return new Iterable<Map.Entry<K, V>>()
+    {
+      @Override
+      public Iterator<Map.Entry<K, V>> iterator()
+      {
+        return SpillableWindowedKeyedStorage.this.iterator(window);
+      }
+    };
   }
 
   @Override

@@ -21,6 +21,7 @@ package org.apache.apex.malhar.lib.window.impl;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -73,20 +74,17 @@ public class SpillableSessionWindowedStorage<K, V> extends SpillableWindowedKeye
   @Override
   public void migrateWindow(Window fromWindow, Window toWindow)
   {
-    List<K> keys = windowToKeysMap.get(fromWindow);
-    windowKeyToValueMap.remove(toWindow);
-    for (K key : keys) {
-      windowToKeysMap.put(toWindow, key);
-      ImmutablePair<Window, K> oldKey = new ImmutablePair<>(fromWindow, key);
-      ImmutablePair<Window, K> newKey = new ImmutablePair<>(toWindow, key);
-
-      V value = windowKeyToValueMap.get(oldKey);
-      windowKeyToValueMap.remove(oldKey);
-      windowKeyToValueMap.put(newKey, value);
+    remove(toWindow);
+    Iterator<Map.Entry<K, V>> iterator = iterator(fromWindow);
+    while (iterator.hasNext()) {
+      Map.Entry<K, V> entry = iterator.next();
+      K key = entry.getKey();
+      V value = entry.getValue();
+      put(toWindow, key, value);
       keyToWindowsMap.remove(key, (Window.SessionWindow<K>)fromWindow);
       keyToWindowsMap.put(key, (Window.SessionWindow<K>)toWindow);
+      iterator.remove();
     }
-    windowToKeysMap.removeAll(fromWindow);
   }
 
   @Override

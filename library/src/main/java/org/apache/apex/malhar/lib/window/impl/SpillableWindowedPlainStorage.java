@@ -110,12 +110,6 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
   }
 
   @Override
-  public long size()
-  {
-    return windowToDataMap.size();
-  }
-
-  @Override
   public void remove(Window window)
   {
     windowToDataMap.remove(window);

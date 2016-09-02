@@ -48,6 +48,12 @@ import com.datatorrent.lib.util.KeyValPair;
 public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
     extends AbstractWindowedOperator<KeyValPair<KeyT, InputValT>, KeyValPair<KeyT, OutputValT>, WindowedStorage.WindowedKeyedStorage<KeyT, AccumT>, WindowedStorage.WindowedKeyedStorage<KeyT, OutputValT>, Accumulation<InputValT, AccumT, OutputValT>>
 {
+  private long minSessionWindowDuration = 1;
+
+  public void setMinSessionWindowDuration(long minSessionWindowDuration)
+  {
+    this.minSessionWindowDuration = minSessionWindowDuration;
+  }
 
   @Override
   protected Collection<Window.SessionWindow> assignSessionWindows(long timestamp, Tuple<KeyValPair<KeyT, InputValT>> inputTuple)
@@ -81,7 +87,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
           }
           // create a new session window that covers the timestamp
           long newBeginTimestamp = Math.min(sessionWindow.getBeginTimestamp(), timestamp);
-          long newEndTimestamp = Math.max(sessionWindow.getBeginTimestamp() + sessionWindow.getDurationMillis(), timestamp + 1);
+          long newEndTimestamp = Math.max(sessionWindow.getBeginTimestamp() + sessionWindow.getDurationMillis(), timestamp + minSessionWindowDuration);
           Window.SessionWindow<KeyT> newSessionWindow =
               new Window.SessionWindow<>(key, newBeginTimestamp, newEndTimestamp - newBeginTimestamp);
           windowStateMap.remove(sessionWindow);
@@ -145,7 +151,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
   @Override
   public void fireNormalTrigger(Window window, boolean fireOnlyUpdatedPanes)
   {
-    for (Map.Entry<KeyT, AccumT> entry : dataStorage.entrySet(window)) {
+    for (Map.Entry<KeyT, AccumT> entry : dataStorage.entries(window)) {
       OutputValT outputVal = accumulation.getOutput(entry.getValue());
       if (fireOnlyUpdatedPanes) {
         OutputValT oldValue = retractionStorage.get(window, entry.getKey());
@@ -166,7 +172,7 @@ public class KeyedWindowedOperatorImpl<KeyT, InputValT, AccumT, OutputValT>
     if (triggerOption.getAccumulationMode() != TriggerOption.AccumulationMode.ACCUMULATING_AND_RETRACTING) {
       throw new UnsupportedOperationException();
     }
-    for (Map.Entry<KeyT, OutputValT> entry : retractionStorage.entrySet(window)) {
+    for (Map.Entry<KeyT, OutputValT> entry : retractionStorage.entries(window)) {
       output.emit(new Tuple.WindowedTuple<>(window, new KeyValPair<>(entry.getKey(), accumulation.getRetraction(entry.getValue()))));
     }
   }
