@@ -28,6 +28,7 @@ import org.apache.apex.malhar.lib.window.ControlTuple;
 import org.apache.apex.malhar.lib.window.TriggerOption;
 import org.apache.apex.malhar.lib.window.Tuple;
 import org.apache.apex.malhar.lib.window.Window;
+import org.apache.apex.malhar.lib.window.WindowOption;
 import org.apache.apex.malhar.lib.window.WindowState;
 import org.apache.apex.malhar.lib.window.WindowedStorage;
 
@@ -188,6 +189,6 @@ public class WindowedJoinOperatorTestApplication implements StreamingApplication
     Configuration conf = new Configuration(false);
     lma.prepareDAG(new WindowedJoinOperatorTestApplication(), conf);
     LocalMode.Controller lc = lma.getController();
-    lc.run(10000);
+    lc.run(20000);
   }
 }
