@@ -64,7 +64,7 @@ public class InMemoryWindowedStorage<T> implements WindowedStorage.WindowedPlain
   }
 
   @Override
-  public Iterable<Map.Entry<Window, T>> entrySet()
+  public Iterable<Map.Entry<Window, T>> entries()
   {
     return map.entrySet();
   }

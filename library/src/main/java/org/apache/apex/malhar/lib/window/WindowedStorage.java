@@ -78,7 +78,7 @@ public interface WindowedStorage extends Component<Context.OperatorContext>
      *
      * @return
      */
-    Iterable<Map.Entry<Window, T>> entrySet();
+    Iterable<Map.Entry<Window, T>> entries();
   }
 
   /**

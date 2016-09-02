@@ -21,6 +21,7 @@ package org.apache.apex.malhar.lib.window.impl;
 import java.util.Iterator;
 import java.util.Map;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import org.apache.apex.malhar.lib.state.spillable.Spillable;
@@ -29,6 +30,8 @@ import org.apache.apex.malhar.lib.utils.serde.Serde;
 import org.apache.apex.malhar.lib.utils.serde.SerdeKryoSlice;
 import org.apache.apex.malhar.lib.window.Window;
 import org.apache.apex.malhar.lib.window.WindowedStorage;
+
+import com.google.common.base.Function;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.netlet.util.Slice;
@@ -45,6 +48,7 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
   private long bucket;
   private Serde<Window, Slice> windowSerde;
   private Serde<T, Slice> valueSerde;
+  private long millisPerBucket = 1000;
 
   protected Spillable.SpillableByteMap<Window, T> windowToDataMap;
 
@@ -52,11 +56,12 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
   {
   }
 
-  public SpillableWindowedPlainStorage(long bucket, Serde<Window, Slice> windowSerde, Serde<T, Slice> valueSerde)
+  public SpillableWindowedPlainStorage(long bucket, Serde<Window, Slice> windowSerde, Serde<T, Slice> valueSerde, long millisPerBucket)
   {
     this.bucket = bucket;
     this.windowSerde = windowSerde;
     this.valueSerde = valueSerde;
+    this.millisPerBucket = millisPerBucket;
   }
 
   public void setSpillableComplexComponent(SpillableComplexComponent scc)
@@ -79,6 +84,11 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
     this.valueSerde = valueSerde;
   }
 
+  public void setMillisPerBucket(long millisPerBucket)
+  {
+    this.millisPerBucket = millisPerBucket;
+  }
+
   @Override
   public void put(Window window, T value)
   {
@@ -92,7 +102,7 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
   }
 
   @Override
-  public Iterable<Map.Entry<Window, T>> entrySet()
+  public Iterable<Map.Entry<Window, T>> entries()
   {
     return windowToDataMap.entrySet();
   }
@@ -100,7 +110,7 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
   @Override
   public Iterator<Map.Entry<Window, T>> iterator()
   {
-    return entrySet().iterator();
+    return entries().iterator();
   }
 
   @Override
@@ -130,7 +140,14 @@ public class SpillableWindowedPlainStorage<T> implements WindowedStorage.Windowe
       valueSerde = new SerdeKryoSlice<>();
     }
     if (windowToDataMap == null) {
-      windowToDataMap = scc.newSpillableByteMap(bucket, windowSerde, valueSerde);
+      windowToDataMap = scc.newSpillableIterableByteMap(bucket, windowSerde, valueSerde, new Function<Window, Long>()
+      {
+        @Override
+        public Long apply(@Nullable Window window)
+        {
+          return (window == null) ? 0L : window.getBeginTimestamp() + window.getDurationMillis();
+        }
+      }, millisPerBucket);
     }
   }
 

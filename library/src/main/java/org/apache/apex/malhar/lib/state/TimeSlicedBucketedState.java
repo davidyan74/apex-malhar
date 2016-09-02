@@ -18,7 +18,6 @@
  */
 package org.apache.apex.malhar.lib.state;
 
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Future;
 

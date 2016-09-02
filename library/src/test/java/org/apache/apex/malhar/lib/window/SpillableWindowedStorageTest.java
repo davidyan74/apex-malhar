@@ -47,6 +47,7 @@ public class SpillableWindowedStorageTest
     Window window2 = new Window.TimeWindow<>(1010, 10);
     Window window3 = new Window.TimeWindow<>(1020, 10);
     storage.setSpillableComplexComponent(sccImpl);
+    storage.setMillisPerBucket(1000);
     storage.setup(testMeta.operatorContext);
     sccImpl.setup(testMeta.operatorContext);
     sccImpl.beginWindow(1000);
@@ -100,6 +101,7 @@ public class SpillableWindowedStorageTest
     Window window2 = new Window.TimeWindow<>(1010, 10);
     Window window3 = new Window.TimeWindow<>(1020, 10);
     storage.setSpillableComplexComponent(sccImpl);
+    storage.setMillisPerBucket(1000);
     storage.setup(testMeta.operatorContext);
     sccImpl.setup(testMeta.operatorContext);
     sccImpl.beginWindow(1000);

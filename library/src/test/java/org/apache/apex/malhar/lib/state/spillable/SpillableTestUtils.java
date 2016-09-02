@@ -25,7 +25,7 @@ import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 
 import org.apache.apex.malhar.lib.state.managed.ManagedStateTestUtils;
-import org.apache.apex.malhar.lib.state.spillable.managed.ManagedStateSpillableStateStore;
+import org.apache.apex.malhar.lib.state.spillable.managed.ManagedTimeStateSpillableStateStore;
 import org.apache.apex.malhar.lib.utils.serde.Serde;
 import org.apache.apex.malhar.lib.utils.serde.SerdeListSlice;
 import org.apache.apex.malhar.lib.utils.serde.SerdeStringSlice;
@@ -53,7 +53,7 @@ public class SpillableTestUtils
 
   public static class TestMeta extends TestWatcher
   {
-    public ManagedStateSpillableStateStore store;
+    public ManagedTimeStateSpillableStateStore store;
     public Context.OperatorContext operatorContext;
     public String applicationPath;
 
@@ -61,7 +61,7 @@ public class SpillableTestUtils
     protected void starting(Description description)
     {
       TestUtils.deleteTargetTestClassFolder(description);
-      store = new ManagedStateSpillableStateStore();
+      store = new ManagedTimeStateSpillableStateStore();
       applicationPath = "target/" + description.getClassName() + "/" + description.getMethodName();
       ((FileAccessFSImpl)store.getFileAccess()).setBasePath(applicationPath + "/" + "bucket_data");
 

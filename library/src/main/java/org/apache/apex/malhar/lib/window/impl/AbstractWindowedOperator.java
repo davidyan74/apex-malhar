@@ -501,7 +501,7 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
   private void fireTimeTriggers()
   {
     if (earlyTriggerMillis > 0 || lateTriggerMillis > 0) {
-      for (Map.Entry<Window, WindowState> entry : windowStateMap.entrySet()) {
+      for (Map.Entry<Window, WindowState> entry : windowStateMap.entries()) {
         Window window = entry.getKey();
         WindowState windowState = entry.getValue();
         if (windowState.watermarkArrivalTime == -1) {

@@ -20,7 +20,6 @@ package org.apache.apex.malhar.lib.state.managed;
 
 import java.io.IOException;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;

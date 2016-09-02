@@ -59,7 +59,7 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   protected Serde<Pair<Window, K>, Slice> windowKeyPairSerde;
   protected Serde<K, Slice> keySerde;
   protected Serde<V, Slice> valueSerde;
-  protected long millisPerBucket;
+  protected long millisPerBucket = 1000;
 
   protected Spillable.SpillableIterableByteMap<Pair<Window, K>, V> windowKeyToValueMap;
 
@@ -157,6 +157,11 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
     this.valueSerde = valueSerde;
   }
 
+  public void setMillisPerBucket(long millisPerBucket)
+  {
+    this.millisPerBucket = millisPerBucket;
+  }
+
   @Override
   public boolean containsWindow(Window window)
   {
@@ -200,7 +205,7 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
         @Override
         public Long apply(@Nullable Pair<Window, K> windowKPair)
         {
-          return windowKPair.getLeft().getBeginTimestamp();
+          return windowKPair == null ? 0 : windowKPair.getLeft().getBeginTimestamp() + windowKPair.getLeft().getDurationMillis();
         }
       }, millisPerBucket);
     }
