@@ -24,16 +24,17 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.apex.malhar.lib.state.spillable.Spillable;
-import org.apache.apex.malhar.lib.utils.serde.Serde;
+import org.apache.apex.malhar.lib.utils.serde.SerdeListSlice;
 import org.apache.apex.malhar.lib.window.SessionWindowedStorage;
 import org.apache.apex.malhar.lib.window.Window;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.hadoop.classification.InterfaceStability;
 
 import com.datatorrent.api.Context;
-import com.datatorrent.netlet.util.Slice;
 
 /**
  * Spillable session windowed storage. Note that the underlying implementation does not support certain operations so
@@ -43,14 +44,15 @@ import com.datatorrent.netlet.util.Slice;
 public class SpillableSessionWindowedStorage<K, V> extends SpillableWindowedKeyedStorage<K, V> implements SessionWindowedStorage<K, V>
 {
   // additional key to windows map for fast lookup of windows using key
-  protected Spillable.SpillableByteArrayListMultimap<K, Window.SessionWindow<K>> keyToWindowsMap;
+  protected Spillable.SpillableByteMap<K, Set<Window.SessionWindow<K>>> keyToWindowsMap;
 
   @Override
   public void setup(Context.OperatorContext context)
   {
     super.setup(context);
     if (keyToWindowsMap == null) {
-      keyToWindowsMap = scc.newSpillableByteArrayListMultimap(bucket, keySerde, (Serde<Window.SessionWindow<K>, Slice>)(Serde)windowSerde);
+      SerdeListSlice windowListSerde = new SerdeListSlice(windowSerde);
+      keyToWindowsMap = scc.newSpillableByteMap(bucket, keySerde, windowListSerde);
     }
   }
 
@@ -58,17 +60,14 @@ public class SpillableSessionWindowedStorage<K, V> extends SpillableWindowedKeye
   public void remove(Window window)
   {
     super.remove(window);
-    Window.SessionWindow<K> sessionWindow = (Window.SessionWindow<K>)window;
-    keyToWindowsMap.remove(sessionWindow.getKey(), sessionWindow);
+    removeSessionWindowFromKey((Window.SessionWindow<K>)window);
   }
 
   @Override
   public void put(Window window, K key, V value)
   {
     super.put(window, key, value);
-    if (!keyToWindowsMap.containsEntry(key, (Window.SessionWindow<K>)window)) {
-      keyToWindowsMap.put(key, (Window.SessionWindow<K>)window);
-    }
+    addSessionWindowToKey((Window.SessionWindow<K>)window);
   }
 
   @Override
@@ -81,17 +80,42 @@ public class SpillableSessionWindowedStorage<K, V> extends SpillableWindowedKeye
       K key = entry.getKey();
       V value = entry.getValue();
       put(toWindow, key, value);
-      keyToWindowsMap.remove(key, (Window.SessionWindow<K>)fromWindow);
-      keyToWindowsMap.put(key, (Window.SessionWindow<K>)toWindow);
       iterator.remove();
     }
+    removeSessionWindowFromKey((Window.SessionWindow<K>)fromWindow);
+    addSessionWindowToKey((Window.SessionWindow<K>)toWindow);
+  }
+
+  private void removeSessionWindowFromKey(Window.SessionWindow<K> sessionWindow)
+  {
+    K key = sessionWindow.getKey();
+    Set<Window.SessionWindow<K>> sessionWindows = keyToWindowsMap.get(key);
+    if (sessionWindows.contains(sessionWindow)) {
+      sessionWindows.remove(sessionWindow);
+      keyToWindowsMap.put(key, sessionWindows);
+    }
+  }
+
+  private void addSessionWindowToKey(Window.SessionWindow<K> sessionWindow)
+  {
+    K key = sessionWindow.getKey();
+    Set<Window.SessionWindow<K>> sessionWindows = keyToWindowsMap.get(key);
+    if (sessionWindows != null) {
+      if (sessionWindows.contains(key)) {
+        return;
+      }
+    } else {
+      sessionWindows = new TreeSet<>();
+    }
+    sessionWindows.add(sessionWindow);
+    keyToWindowsMap.put(key, sessionWindows);
   }
 
   @Override
   public Collection<Map.Entry<Window.SessionWindow<K>, V>> getSessionEntries(K key, long timestamp, long gap)
   {
     List<Map.Entry<Window.SessionWindow<K>, V>> results = new ArrayList<>();
-    List<Window.SessionWindow<K>> sessionWindows = keyToWindowsMap.get(key);
+    Set<Window.SessionWindow<K>> sessionWindows = keyToWindowsMap.get(key);
     if (sessionWindows != null) {
       for (Window.SessionWindow<K> window : sessionWindows) {
         if (timestamp > window.getBeginTimestamp()) {

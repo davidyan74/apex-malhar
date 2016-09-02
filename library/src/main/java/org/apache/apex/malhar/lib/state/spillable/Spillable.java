@@ -38,7 +38,7 @@ public interface Spillable
 {
   /**
    * This represents a spillable {@link java.util.List}. The underlying implementation
-   * of this list is similar to that of an {@link java.util.ArrayList}. User's that receive an
+   * of this list is similar to that of an {@link java.util.ArrayList}. Users that receive an
    * implementation of this interface don't need to worry about propagating operator call-backs
    * to the data structure.
    * @param <T> The type of the data stored in the {@link SpillableArrayList}.
@@ -50,7 +50,7 @@ public interface Spillable
   /**
    * This represents a spillable {@link java.util.Map}. Implementations make
    * some assumptions about serialization and equality. Consider two keys K1 and K2. The assumption is
-   * that K1.equals(K2) should be consistent with K1.toByteArray().equals(K2.toByteArray()). User's that receive an
+   * that K1.equals(K2) should be consistent with K1.toByteArray().equals(K2.toByteArray()). Users that receive an
    * implementation of this interface don't need to worry about propagating operator call-backs
    * to the data structure.
    * @param <K> The type of the keys.
@@ -68,7 +68,7 @@ public interface Spillable
   /**
    * This represents a spillable {@link com.google.common.collect.ListMultimap} implementation. Implementations make
    * some assumptions about serialization and equality. Consider two keys K1 and K2. The assumption is
-   * that K1.equals(K2) should be consistent with K1.toByteArray().equals(K2.toByteArray()). User's that receive an
+   * that K1.equals(K2) should be consistent with K1.toByteArray().equals(K2.toByteArray()). Users that receive an
    * implementation of this interface don't need to worry about propagating operator call-backs
    * to the data structure.
    * @param <K> The type of the keys.
@@ -81,7 +81,7 @@ public interface Spillable
   /**
    * This represents a spillable {@link com.google.common.collect.Multiset} implementation. Implementations make
    * some assumptions about serialization and equality. Consider two elements T1 and T2. The assumption is
-   * that T1.equals(T2) should be consistent with T1.toByteArray().equals(T2.toByteArray()). User's that receive an
+   * that T1.equals(T2) should be consistent with T1.toByteArray().equals(T2.toByteArray()). Users that receive an
    * implementation of this interface don't need to worry about propagating operator call-backs to the data structure.
    */
   interface SpillableByteMultiset<T> extends Multiset<T>
@@ -89,7 +89,7 @@ public interface Spillable
   }
 
   /**
-   * This represents a spillable {@link java.util.Queue} implementation. User's that receive an
+   * This represents a spillable {@link java.util.Queue} implementation. Users that receive an
    * implementation of this interface don't need to worry about propagating operator call-backs
    * to the data structure.
    * @param <T> The type of the data stored in the queue.
