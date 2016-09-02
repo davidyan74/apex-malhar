@@ -22,7 +22,9 @@ import java.util.AbstractMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
+import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
 import org.slf4j.Logger;
@@ -36,6 +38,8 @@ import org.apache.apex.malhar.lib.window.Window;
 import org.apache.apex.malhar.lib.window.WindowedStorage;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+
+import com.google.common.base.Function;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.netlet.util.Slice;
@@ -55,38 +59,38 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   protected Serde<Pair<Window, K>, Slice> windowKeyPairSerde;
   protected Serde<K, Slice> keySerde;
   protected Serde<V, Slice> valueSerde;
+  protected long millisPerBucket;
 
-  protected Spillable.SpillableByteMap<Pair<Window, K>, V> windowKeyToValueMap;
-  protected Spillable.SpillableByteArrayListMultimap<Window, K> windowToKeysMap;
+  protected Spillable.SpillableIterableByteMap<Pair<Window, K>, V> windowKeyToValueMap;
 
   private static final Logger LOG = LoggerFactory.getLogger(SpillableWindowedKeyedStorage.class);
 
   private class KVIterator implements Iterator<Map.Entry<K, V>>
   {
     final Window window;
-    final List<K> keys;
-    Iterator<K> iterator;
+    Iterator<Map.Entry<Pair<Window, K>, V>> iterator;
 
     KVIterator(Window window)
     {
       this.window = window;
-      this.keys = windowToKeysMap.get(window);
-      if (this.keys != null) {
-        this.iterator = this.keys.iterator();
-      }
+      this.iterator = windowKeyToValueMap.iterator(new ImmutablePair<>(window, (K)null));
     }
 
     @Override
     public boolean hasNext()
     {
-      return iterator != null && iterator.hasNext();
+      return iterator != null && iterator.hasNext() && ;
     }
 
     @Override
     public Map.Entry<K, V> next()
     {
-      K key = iterator.next();
-      return new AbstractMap.SimpleEntry<>(key, windowKeyToValueMap.get(new ImmutablePair<>(window, key)));
+      Map.Entry<Pair<Window, K>, V> next = iterator.next();
+      if (window.equals(next.getKey().getLeft())) {
+        return new AbstractMap.SimpleEntry<>(next.getKey().getRight(), next.getValue());
+      } else {
+        throw new NoSuchElementException();
+      }
     }
 
     @Override
@@ -101,13 +105,14 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   }
 
   public SpillableWindowedKeyedStorage(long bucket,
-      Serde<Window, Slice> windowSerde, Serde<Pair<Window, K>, Slice> windowKeyPairSerde, Serde<K, Slice> keySerde, Serde<V, Slice> valueSerde)
+      Serde<Window, Slice> windowSerde, Serde<Pair<Window, K>, Slice> windowKeyPairSerde, Serde<K, Slice> keySerde, Serde<V, Slice> valueSerde, long millisPerBucket)
   {
     this.bucket = bucket;
     this.windowSerde = windowSerde;
     this.windowKeyPairSerde = windowKeyPairSerde;
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
+    this.millisPerBucket = millisPerBucket;
   }
 
   public void setSpillableComplexComponent(SpillableComplexComponent scc)
@@ -138,20 +143,18 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   @Override
   public boolean containsWindow(Window window)
   {
-    return windowToKeysMap.containsKey(window);
+    return windowKeyToValueMap.containsKey(new ImmutablePair<Window, K>(window, null));
   }
 
   @Override
   public long size()
   {
-    return windowToKeysMap.size();
+    return windowKeyToValueMap.get(new ImmutablePair<Window, K>(null, null));
   }
 
   @Override
   public void remove(Window window)
   {
-    LOG.debug("before windowKeyToValueMap size {}", windowKeyToValueMap.size());
-    LOG.debug("before windowKeyToValueMap size {}", windowToKeysMap.size());
     List<K> keys = windowToKeysMap.get(window);
     for (K key : keys) {
       windowKeyToValueMap.remove(new ImmutablePair<>(window, key));
@@ -183,10 +186,15 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
     }
 
     if (windowKeyToValueMap == null) {
-      windowKeyToValueMap = scc.newSpillableByteMap(bucket, windowKeyPairSerde, valueSerde);
-    }
-    if (windowToKeysMap == null) {
-      windowToKeysMap = scc.newSpillableByteArrayListMultimap(bucket, windowSerde, keySerde);
+      windowKeyToValueMap = scc.newSpillableIterableByteMap(bucket, windowKeyPairSerde, valueSerde, new Function<Pair<Window, K>, Long>()
+
+      {
+        @Override
+        public Long apply(@Nullable Pair<Window, K> windowKPair)
+        {
+          return windowKPair.getLeft().getBeginTimestamp();
+        }
+      }, millisPerBucket);
     }
   }
 
