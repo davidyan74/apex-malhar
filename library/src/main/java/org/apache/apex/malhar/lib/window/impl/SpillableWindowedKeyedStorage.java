@@ -113,7 +113,7 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
     @Override
     public void remove()
     {
-      throw new UnsupportedOperationException();
+      iterator.remove();
     }
   }
 
@@ -173,6 +173,7 @@ public class SpillableWindowedKeyedStorage<K, V> implements WindowedStorage.Wind
   {
     Iterator<Map.Entry<K, V>> it = iterator(window);
     while (it.hasNext()) {
+      it.next();
       it.remove();
     }
   }
