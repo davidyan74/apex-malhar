@@ -56,9 +56,8 @@ public class WindowedJoinOperatorWatermarkTest
 
     // Current watermark of join operator could only change during endWindow() event.
     op.controlInput.process(new WatermarkImpl(1100000));
-    Assert.assertEquals(1000000, op.currentWatermark);
-    op.endWindow();
     Assert.assertEquals(1100000, op.currentWatermark);
+    op.endWindow();
     Assert.assertEquals(3, sink.collectedTuples.size());
 
     // If the upstreams sent a watermark but the minimum of the latest input watermarks doesn't change, the join
