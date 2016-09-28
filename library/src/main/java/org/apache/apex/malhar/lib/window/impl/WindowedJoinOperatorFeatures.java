@@ -53,6 +53,7 @@ abstract class WindowedJoinOperatorFeatures<InputT1, InputT2, AccumT, Accumulati
   }
 
   abstract void accumulateTuple1(Tuple.WindowedTuple<InputT1> tuple);
+
   abstract void accumulateTuple2(Tuple.WindowedTuple<InputT2> tuple);
 
   void processWatermark1(ControlTuple.Watermark watermark)
