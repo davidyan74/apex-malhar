@@ -79,8 +79,8 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
 
   private Function<InputT, Long> timestampExtractor;
 
+  protected long nextWatermark = -1;
   protected long currentWatermark = -1;
-  protected long previousWatermark = -1;
   private boolean triggerAtWatermark;
   protected long earlyTriggerCount;
   private long earlyTriggerMillis;
@@ -256,9 +256,9 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
     this.timestampExtractor = timestampExtractor;
   }
 
-  public void setCurrentWatermark(long timestamp)
+  public void setNextWatermark(long timestamp)
   {
-    this.currentWatermark = timestamp;
+    this.nextWatermark = timestamp;
   }
 
   /**
@@ -413,7 +413,7 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
   @Override
   public void processWatermark(ControlTuple.Watermark watermark)
   {
-    this.currentWatermark = watermark.getTimestamp();
+    this.nextWatermark = watermark.getTimestamp();
   }
 
   @Override
@@ -488,17 +488,17 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
   protected void processWatermarkAtEndWindow()
   {
     if (fixedWatermarkMillis > 0) {
-      currentWatermark = currentDerivedTimestamp - fixedWatermarkMillis;
+      nextWatermark = currentDerivedTimestamp - fixedWatermarkMillis;
     }
-    if (currentWatermark > 0 && previousWatermark < currentWatermark) {
+    if (nextWatermark > 0 && currentWatermark < nextWatermark) {
 
-      long horizon = currentWatermark - allowedLatenessMillis;
+      long horizon = nextWatermark - allowedLatenessMillis;
 
       for (Iterator<Map.Entry<Window, WindowState>> it = windowStateMap.entries().iterator(); it.hasNext(); ) {
         Map.Entry<Window, WindowState> entry = it.next();
         Window window = entry.getKey();
         WindowState windowState = entry.getValue();
-        if (window.getBeginTimestamp() + window.getDurationMillis() < currentWatermark) {
+        if (window.getBeginTimestamp() + window.getDurationMillis() < nextWatermark) {
           // watermark has not arrived for this window before, marking this window late
           if (windowState.watermarkArrivalTime == -1) {
             windowState.watermarkArrivalTime = currentDerivedTimestamp;
@@ -517,8 +517,8 @@ public abstract class AbstractWindowedOperator<InputT, OutputT, DataStorageT ext
           }
         }
       }
-      controlOutput.emit(new WatermarkImpl(currentWatermark));
-      this.previousWatermark = currentWatermark;
+      controlOutput.emit(new WatermarkImpl(nextWatermark));
+      this.currentWatermark = nextWatermark;
     }
   }
 

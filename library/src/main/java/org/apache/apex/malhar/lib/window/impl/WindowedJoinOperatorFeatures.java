@@ -61,14 +61,14 @@ abstract class WindowedJoinOperatorFeatures<InputT1, InputT2, AccumT, Accumulati
     latestWatermark1 = watermark.getTimestamp();
     // Select the smallest timestamp of the latest watermarks as the watermark of the operator.
     long minWatermark = Math.min(latestWatermark1, latestWatermark2);
-    operator.setCurrentWatermark(minWatermark);
+    operator.setNextWatermark(minWatermark);
   }
 
   void processWatermark2(ControlTuple.Watermark watermark)
   {
     latestWatermark2 = watermark.getTimestamp();
     long minWatermark = Math.min(latestWatermark1, latestWatermark2);
-    operator.setCurrentWatermark(minWatermark);
+    operator.setNextWatermark(minWatermark);
   }
 
   /**
