@@ -19,11 +19,11 @@
 package org.apache.apex.malhar.lib.state.managed;
 
 import java.io.IOException;
-import java.util.Comparator;
+import java.util.Iterator;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.TreeSet;
 
 import javax.validation.constraints.NotNull;
 
@@ -32,56 +32,53 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
 
 /**
  * Tracks the size of state in memory and evicts buckets.
  */
 class StateTracker extends TimerTask
 {
-  //bucket id -> bucket id & time wrapper
-  private final transient ConcurrentHashMap<Long, BucketIdTimeWrapper> bucketAccessTimes = new ConcurrentHashMap<>();
-
-  private transient ConcurrentSkipListSet<BucketIdTimeWrapper> bucketHeap;
-
   private final transient Timer memoryFreeService = new Timer();
 
   protected transient AbstractManagedStateImpl managedStateImpl;
+
+  private transient long lastUpdateAccessTime = 0;
+  private final transient Set<Long> accessedBucketIds = Sets.newHashSet();
+  private transient TreeSet<BucketIdTimeWrapper> bucketHeapForAccess = Sets.newTreeSet();
+  private transient TreeSet<BucketIdTimeWrapper> bucketHeapForRelease = Sets.newTreeSet();
+
+  private int updateAccessTimeInterval = 500;
 
   void setup(@NotNull AbstractManagedStateImpl managedStateImpl)
   {
     this.managedStateImpl = Preconditions.checkNotNull(managedStateImpl, "managed state impl");
 
-    this.bucketHeap = new ConcurrentSkipListSet<>(
-        new Comparator<BucketIdTimeWrapper>()
-        {
-          //Note: this comparator imposes orderings that are inconsistent with equals.
-          @Override
-          public int compare(BucketIdTimeWrapper o1, BucketIdTimeWrapper o2)
-          {
-            if (o1.getLastAccessedTime() < o2.getLastAccessedTime()) {
-              return -1;
-            }
-            if (o1.getLastAccessedTime() > o2.getLastAccessedTime()) {
-              return 1;
-            }
-
-            return Long.compare(o1.bucketId, o2.bucketId);
-          }
-        });
     long intervalMillis = managedStateImpl.getCheckStateSizeInterval().getMillis();
     memoryFreeService.scheduleAtFixedRate(this, intervalMillis, intervalMillis);
   }
 
   void bucketAccessed(long bucketId)
   {
-    BucketIdTimeWrapper idTimeWrapper = bucketAccessTimes.get(bucketId);
-    if (idTimeWrapper != null) {
-      bucketHeap.remove(idTimeWrapper);
-    }  else {
-      idTimeWrapper = new BucketIdTimeWrapper(bucketId);
+    accessedBucketIds.add(bucketId);
+    if (System.currentTimeMillis() - lastUpdateAccessTime > updateAccessTimeInterval) {
+      synchronized (this) {
+        //remove the duplicate
+        Iterator<BucketIdTimeWrapper> bucketIter = bucketHeapForAccess.iterator();
+        while (bucketIter.hasNext()) {
+          if (accessedBucketIds.contains(bucketIter.next().bucketId)) {
+            bucketIter.remove();
+          }
+        }
+
+        for (long id : accessedBucketIds) {
+          bucketHeapForAccess.add(new BucketIdTimeWrapper(id));
+        }
+      }
+
+      accessedBucketIds.clear();
+      lastUpdateAccessTime = System.currentTimeMillis();
     }
-    idTimeWrapper.setLastAccessedTime(System.currentTimeMillis());
-    bucketHeap.add(idTimeWrapper);
   }
 
   @SuppressWarnings("SynchronizationOnLocalVariableOrMethodParameter")
@@ -105,12 +102,31 @@ class StateTracker extends TimerTask
           durationMillis = duration.getMillis();
         }
 
-        BucketIdTimeWrapper idTimeWrapper;
-        while (bytesSum > managedStateImpl.getMaxMemorySize() && bucketHeap.size() > 0 &&
-            null != (idTimeWrapper = bucketHeap.first())) {
-          //trigger buckets to free space
+        synchronized (this) {
+          /**
+           * The buckets need to be free memory are the buckets accessed in this period and the buckets leftover from last time release.
+           * As the leftover buckets should be very small size or empty.
+           * So add leftover buckets to current accessed buckets and then swap should performance better.
+           */
+          //add the last release leftover for this release
+          for (BucketIdTimeWrapper releaseItem : bucketHeapForRelease) {
+            bucketHeapForAccess.add(releaseItem);
+          }
+          bucketHeapForRelease.clear();
 
-          if (System.currentTimeMillis() - idTimeWrapper.getLastAccessedTime() < durationMillis) {
+          //switch the access and release list
+          TreeSet<BucketIdTimeWrapper> tmp = bucketHeapForAccess;
+          bucketHeapForAccess = bucketHeapForRelease;
+          bucketHeapForRelease = tmp;
+        }
+
+        Iterator<BucketIdTimeWrapper> bucketIter = bucketHeapForRelease.iterator();
+        BucketIdTimeWrapper idTimeWrapper;
+        while (bytesSum > managedStateImpl.getMaxMemorySize() && bucketIter.hasNext()) {
+          //trigger buckets to free space
+          idTimeWrapper = bucketIter.next();
+
+          if (System.currentTimeMillis() - idTimeWrapper.lastAccessedTime < durationMillis) {
             //if the least recently used bucket cannot free up space because it was accessed within the
             //specified duration then subsequent buckets cannot free space as well because this heap is ordered by time.
             break;
@@ -130,12 +146,23 @@ class StateTracker extends TimerTask
               }
               bytesSum -= sizeFreed;
             }
-            bucketHeap.remove(idTimeWrapper);
-            bucketAccessTimes.remove(bucketId);
+            if (bucket.getSizeInBytes() == 0) {
+              bucketIter.remove();
+            }
           }
         }
       }
     }
+  }
+
+  public int getUpdateAccessTimeInterval()
+  {
+    return updateAccessTimeInterval;
+  }
+
+  public void setUpdateAccessTimeInterval(int updateAccessTimeInterval)
+  {
+    this.updateAccessTimeInterval = updateAccessTimeInterval;
   }
 
   void teardown()
@@ -146,24 +173,20 @@ class StateTracker extends TimerTask
   /**
    * Wrapper class for bucket id and the last time the bucket was accessed.
    */
-  private static class BucketIdTimeWrapper
+  private static class BucketIdTimeWrapper implements Comparable<BucketIdTimeWrapper>
   {
+    @Override
+    public int compareTo(BucketIdTimeWrapper o)
+    {
+      return (int)((lastAccessedTime == o.lastAccessedTime) ? (bucketId - o.bucketId) : lastAccessedTime - o.lastAccessedTime);
+    }
+
     private final long bucketId;
     private long lastAccessedTime;
 
     BucketIdTimeWrapper(long bucketId)
     {
       this.bucketId = bucketId;
-    }
-
-    private synchronized long getLastAccessedTime()
-    {
-      return lastAccessedTime;
-    }
-
-    private synchronized void setLastAccessedTime(long lastAccessedTime)
-    {
-      this.lastAccessedTime = lastAccessedTime;
     }
 
     @Override
