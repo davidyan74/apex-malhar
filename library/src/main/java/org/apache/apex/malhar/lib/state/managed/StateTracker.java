@@ -20,16 +20,19 @@ package org.apache.apex.malhar.lib.state.managed;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.TreeSet;
 
 import javax.validation.constraints.NotNull;
 
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.commons.lang3.mutable.MutableLong;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
@@ -45,8 +48,7 @@ class StateTracker extends TimerTask
 
   private transient long lastUpdateAccessTime = 0;
   private final transient Set<Long> accessedBucketIds = Sets.newHashSet();
-  private transient TreeSet<BucketIdTimeWrapper> bucketHeapForAccess = Sets.newTreeSet();
-  private transient TreeSet<BucketIdTimeWrapper> bucketHeapForRelease = Sets.newTreeSet();
+  private final transient LinkedHashMap<Long, MutableLong> bucketLastAccess = new LinkedHashMap<>(16, 0.75f, true);
 
   private int updateAccessTimeInterval = 500;
 
@@ -60,24 +62,21 @@ class StateTracker extends TimerTask
 
   void bucketAccessed(long bucketId)
   {
+    long now = System.currentTimeMillis();
     accessedBucketIds.add(bucketId);
-    if (System.currentTimeMillis() - lastUpdateAccessTime > updateAccessTimeInterval) {
-      synchronized (this) {
-        //remove the duplicate
-        Iterator<BucketIdTimeWrapper> bucketIter = bucketHeapForAccess.iterator();
-        while (bucketIter.hasNext()) {
-          if (accessedBucketIds.contains(bucketIter.next().bucketId)) {
-            bucketIter.remove();
+    if (now - lastUpdateAccessTime > updateAccessTimeInterval) {
+      synchronized (bucketLastAccess) {
+        for (long id : accessedBucketIds) {
+          MutableLong lastAccessTime = bucketLastAccess.get(id);
+          if (lastAccessTime != null) {
+            lastAccessTime.setValue(now);
+          } else {
+            bucketLastAccess.put(id, new MutableLong(now));
           }
         }
-
-        for (long id : accessedBucketIds) {
-          bucketHeapForAccess.add(new BucketIdTimeWrapper(id));
-        }
       }
-
       accessedBucketIds.clear();
-      lastUpdateAccessTime = System.currentTimeMillis();
+      lastUpdateAccessTime = now;
     }
   }
 
@@ -102,52 +101,31 @@ class StateTracker extends TimerTask
           durationMillis = duration.getMillis();
         }
 
-        synchronized (this) {
-          /**
-           * The buckets need to be free memory are the buckets accessed in this period and the buckets leftover from last time release.
-           * As the leftover buckets should be very small size or empty.
-           * So add leftover buckets to current accessed buckets and then swap should performance better.
-           */
-          //add the last release leftover for this release
-          for (BucketIdTimeWrapper releaseItem : bucketHeapForRelease) {
-            bucketHeapForAccess.add(releaseItem);
-          }
-          bucketHeapForRelease.clear();
-
-          //switch the access and release list
-          TreeSet<BucketIdTimeWrapper> tmp = bucketHeapForAccess;
-          bucketHeapForAccess = bucketHeapForRelease;
-          bucketHeapForRelease = tmp;
-        }
-
-        Iterator<BucketIdTimeWrapper> bucketIter = bucketHeapForRelease.iterator();
-        BucketIdTimeWrapper idTimeWrapper;
-        while (bytesSum > managedStateImpl.getMaxMemorySize() && bucketIter.hasNext()) {
-          //trigger buckets to free space
-          idTimeWrapper = bucketIter.next();
-
-          if (System.currentTimeMillis() - idTimeWrapper.lastAccessedTime < durationMillis) {
-            //if the least recently used bucket cannot free up space because it was accessed within the
-            //specified duration then subsequent buckets cannot free space as well because this heap is ordered by time.
-            break;
-          }
-          long bucketId = idTimeWrapper.bucketId;
-          Bucket bucket = managedStateImpl.getBucket(bucketId);
-          if (bucket != null) {
-
-            synchronized (bucket) {
-              long sizeFreed;
-              try {
-                sizeFreed = bucket.freeMemory(managedStateImpl.getCheckpointManager().getLastTransferredWindow());
-                LOG.debug("bucket freed {} {}", bucketId, sizeFreed);
-              } catch (IOException e) {
-                managedStateImpl.throwable.set(e);
-                throw new RuntimeException("freeing " + bucketId, e);
-              }
-              bytesSum -= sizeFreed;
+        synchronized (bucketLastAccess) {
+          long now = System.currentTimeMillis();
+          for (Iterator<Map.Entry<Long, MutableLong>> iterator = bucketLastAccess.entrySet().iterator();
+              bytesSum > managedStateImpl.getMaxMemorySize() && iterator.hasNext(); ) {
+            Map.Entry<Long, MutableLong> entry = iterator.next();
+            if (now - entry.getValue().longValue() < durationMillis) {
+              break;
             }
-            if (bucket.getSizeInBytes() == 0) {
-              bucketIter.remove();
+            long bucketId = entry.getKey();
+            Bucket bucket = managedStateImpl.getBucket(bucketId);
+            if (bucket != null) {
+              synchronized (bucket) {
+                long sizeFreed;
+                try {
+                  sizeFreed = bucket.freeMemory(managedStateImpl.getCheckpointManager().getLastTransferredWindow());
+                  LOG.debug("bucket freed {} {}", bucketId, sizeFreed);
+                } catch (IOException e) {
+                  managedStateImpl.throwable.set(e);
+                  throw new RuntimeException("freeing " + bucketId, e);
+                }
+                bytesSum -= sizeFreed;
+              }
+              if (bucket.getSizeInBytes() == 0) {
+                iterator.remove();
+              }
             }
           }
         }
@@ -168,48 +146,6 @@ class StateTracker extends TimerTask
   void teardown()
   {
     memoryFreeService.cancel();
-  }
-
-  /**
-   * Wrapper class for bucket id and the last time the bucket was accessed.
-   */
-  private static class BucketIdTimeWrapper implements Comparable<BucketIdTimeWrapper>
-  {
-    @Override
-    public int compareTo(BucketIdTimeWrapper o)
-    {
-      return (int)((lastAccessedTime == o.lastAccessedTime) ? (bucketId - o.bucketId) : lastAccessedTime - o.lastAccessedTime);
-    }
-
-    private final long bucketId;
-    private long lastAccessedTime;
-
-    BucketIdTimeWrapper(long bucketId)
-    {
-      this.bucketId = bucketId;
-    }
-
-    @Override
-    public boolean equals(Object o)
-    {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof BucketIdTimeWrapper)) {
-        return false;
-      }
-
-      BucketIdTimeWrapper that = (BucketIdTimeWrapper)o;
-      //Note: the comparator used with bucket heap imposes orderings that are inconsistent with equals
-      return bucketId == that.bucketId;
-
-    }
-
-    @Override
-    public int hashCode()
-    {
-      return (int)(bucketId ^ (bucketId >>> 32));
-    }
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(StateTracker.class);
